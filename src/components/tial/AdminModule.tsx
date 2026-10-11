@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AuditLog, ContentStudio, TeamAccess } from "@/components/tial/WorkspaceTools";
 
 type ModuleKey = "products" | "inventory" | "orders" | "customers" | "insights" | "content" | "media" | "team" | "integrations" | "settings";
 type ApiStatus = "checking" | "online" | "error";
@@ -310,7 +311,10 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
       {operationRows.length > 0 && module === "insights" && <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{operationRows.map((row,i)=><article key={String(row.metric ?? row.date ?? i)} className="rounded-xl border border-[#e7dfd0] bg-[#fbf8f2] p-4"><p className="text-xs uppercase tracking-wide text-[#79633b]">{String(row.metric ?? row.date ?? "Metric")}</p><p className="mt-2 break-words text-xl font-semibold text-[#29251f]">{String(row.value ?? row.sessions ?? row.visitors ?? JSON.stringify(row))}</p>{row.date && <p className="mt-1 text-xs text-gray-500">{String(row.date)}</p>}</article>)}</div>}
       <p className="mt-4 text-xs leading-5 text-gray-500">These are read-only reports. Shopify remains authoritative; no orders, customers or analytics are stored as invented demo records.</p>
     </section>}
-    {module !== "products" && module !== "inventory" && module !== "orders" && module !== "customers" && module !== "insights" && <section className="grid gap-4 md:grid-cols-2">
+    {module === "content" && <ContentStudio />}
+    {module === "team" && <TeamAccess />}
+    {module === "settings" && <AuditLog />}
+    {module !== "products" && module !== "inventory" && module !== "orders" && module !== "customers" && module !== "insights" && module !== "content" && module !== "team" && <section className="grid gap-4 md:grid-cols-2">
       {(module === "integrations" ? liveLabels.map((item) => ({ title: item.title, key: item.key })) : data.items.map((item) => ({ title: item, key: item }))).map((item, index) => {
         const verified = item.key === "admin" ? status === "online" : item.key === "oauth" ? Boolean(shopify?.storedConnection) : item.key === "token" ? Boolean(shopify?.storedConnection) : item.key === "scopes" ? Boolean(shopify?.productRead) : false;
         const label = item.key === "admin" ? (status === "online" ? "Verified · API online" : status === "error" ? "Check failed" : "Checking") : item.key === "oauth" ? (shopify?.storedConnection ? "Connected in database" : "Not connected") : item.key === "token" ? (shopify?.storedConnection ? "Credential record found" : "Not verified") : item.key === "scopes" ? (shopify?.productRead ? "Product API read verified" : shopify?.connected ? "Connection verified; product read pending" : "Pending Shopify verification") : "Workspace capability";
