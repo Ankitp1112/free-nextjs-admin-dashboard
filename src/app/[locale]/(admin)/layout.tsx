@@ -43,5 +43,5 @@ function AdminSessionGate({ children }: { children: React.ReactNode }) {
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
   const mainContentMargin = isMobileOpen ? "ml-0" : isExpanded || isHovered ? "lg:ml-[290px]" : "lg:ml-[90px]";
-  return <AdminSessionGate><div className="min-h-screen xl:flex"><AppSidebar /><Backdrop /><div className={`flex-1 transition-all duration-300 ease-in-out ${mainContentMargin}`}><AppHeader /><div className="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">{children}</div></div></div></AdminSessionGate>;
+  return <AdminSessionGate><div className="min-h-screen xl:flex"><AppSidebar /><Backdrop /><div className={`flex-1 transition-all duration-300 ease-in-out ${mainContentMargin}`}><div className="relative"><AppHeader /><button type="button" onClick={() => { sessionStorage.removeItem("tial_access_token"); sessionStorage.removeItem("tial_refresh_token"); sessionStorage.removeItem("tial_admin_role"); window.location.assign("/signin"); }} className="absolute right-5 top-5 z-40 rounded-lg border border-[#d8c9aa] bg-white px-3 py-2 text-xs font-medium text-[#79633b] hover:bg-[#fbf8f2]">Sign out</button></div><div className="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">{children}</div></div></div></AdminSessionGate>;
 }
