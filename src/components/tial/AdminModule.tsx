@@ -18,6 +18,8 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
   const [draftTitle, setDraftTitle] = useState("");
   const [draftBody, setDraftBody] = useState("");
   const [preview, setPreview] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const [connectError, setConnectError] = useState("");
   const data = copy[module];
   async function checkStatus() {
     setStatus("checking"); setDetail("Checking the admin API…");
@@ -39,7 +41,11 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
     </header>
     {(module === "integrations" || module === "settings") && <section className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
       <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold text-gray-900 dark:text-white">Admin API health</h2><p className="mt-1 text-sm text-gray-500">{detail}</p></div><span className={`rounded-full px-3 py-1 text-xs font-semibold ${status === "online" ? "bg-green-50 text-green-700" : status === "error" ? "bg-red-50 text-red-700" : "bg-gray-100 text-gray-600"}`}>{status === "online" ? "API online" : status === "error" ? "Check failed" : "Checking…"}</span></div>
-      <button onClick={() => void checkStatus()} className="mt-4 rounded-lg border border-[#cbb78e] px-4 py-2 text-sm font-medium text-[#79633b] hover:bg-[#fbf8f2]">Refresh status</button>
+      <div className="mt-4 flex flex-wrap gap-3">
+        <button onClick={() => void checkStatus()} className="rounded-lg border border-[#cbb78e] px-4 py-2 text-sm font-medium text-[#79633b] hover:bg-[#fbf8f2]">Refresh status</button>
+        {module === "integrations" && <button disabled={connecting} onClick={async () => { setConnecting(true); setConnectError(""); try { const token = sessionStorage.getItem("tial_access_token"); const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY; if (!token || !key) throw new Error("Sign in again before connecting Shopify."); const res = await fetch("https://fjzpknwcdecoxdvzrljy.supabase.co/functions/v1/tial-shopify-oauth-start", { headers: { apikey: key, Authorization: `Bearer ${token}` } }); const payload = await res.json(); if (!res.ok || !payload.authorizationUrl) throw new Error(payload.error || "Could not start Shopify authorization."); window.location.assign(payload.authorizationUrl); } catch (e) { setConnectError(e instanceof Error ? e.message : "Could not start Shopify authorization."); setConnecting(false); } }} className="rounded-lg bg-[#29251f] px-4 py-2 text-sm font-medium text-white disabled:opacity-60">{connecting ? "Opening Shopify…" : "Connect Shopify securely"}</button>}
+      </div>
+      {connectError && <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">{connectError}</p>}
     </section>}
     {module === "content" && <section className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
       <h2 className="font-serif text-xl text-gray-900 dark:text-white">Editorial draft pad</h2><p className="mt-1 text-sm text-gray-500">Create a local preview. Database save and publishing are not enabled yet.</p>
