@@ -27,7 +27,22 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [productsLoading, setProductsLoading] = useState(false);
   const [productsError, setProductsError] = useState("");
-  const [productCount, setProductCount] = useState<number | null>(null);\n  const [editingProductId, setEditingProductId] = useState<string | null>(null);\n  const [editTitle, setEditTitle] = useState("");\n  const [editStatus, setEditStatus] = useState("ACTIVE");\n  const [editPrices, setEditPrices] = useState<Record<string, string>>({});\n  const [savingProductId, setSavingProductId] = useState<string | null>(null);\n  const [saveError, setSaveError] = useState("");\n  const [saveMessage, setSaveMessage] = useState("");\n  const [imageUrls, setImageUrls] = useState<Record<string,string>>({});\n  const [imageAlts, setImageAlts] = useState<Record<string,string>>({});\n  const [imageSavingId, setImageSavingId] = useState<string | null>(null);\n  const [collectionTitle, setCollectionTitle] = useState("");\n  const [collectionDescription, setCollectionDescription] = useState("");\n  const [collectionSaving, setCollectionSaving] = useState(false);\n  const [collectionMessage, setCollectionMessage] = useState("");\n  const [collectionError, setCollectionError] = useState("");
+  const [productCount, setProductCount] = useState<number | null>(null);
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editStatus, setEditStatus] = useState("ACTIVE");
+  const [editPrices, setEditPrices] = useState<Record<string, string>>({});
+  const [savingProductId, setSavingProductId] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState("");
+  const [saveMessage, setSaveMessage] = useState("");
+  const [imageUrls, setImageUrls] = useState<Record<string,string>>({});
+  const [imageAlts, setImageAlts] = useState<Record<string,string>>({});
+  const [imageSavingId, setImageSavingId] = useState<string | null>(null);
+  const [collectionTitle, setCollectionTitle] = useState("");
+  const [collectionDescription, setCollectionDescription] = useState("");
+  const [collectionSaving, setCollectionSaving] = useState(false);
+  const [collectionMessage, setCollectionMessage] = useState("");
+  const [collectionError, setCollectionError] = useState("");
   const data = copy[module];
   async function checkStatus() {
     setStatus("checking"); setDetail("Checking the admin API…");
@@ -81,7 +96,8 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
     } catch(e) { setCollectionError(e instanceof Error ? e.message : "Could not create collection."); }
     finally { setCollectionSaving(false); }
   }
-\n  function startEditing(product: Product) {
+
+  function startEditing(product: Product) {
     setEditingProductId(product.id); setEditTitle(product.title); setEditStatus(product.status.toUpperCase());
     setEditPrices(Object.fromEntries(product.variants.map(v => [v.id, v.price])));
     setSaveError(""); setSaveMessage("");
@@ -103,7 +119,8 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
     } catch (error) { setSaveError(error instanceof Error ? error.message : "Could not save changes."); }
     finally { setSavingProductId(null); }
   }
-\n  useEffect(() => { if (module === "integrations" || module === "settings") void checkStatus(); if (module === "products") void loadProducts(); }, [module]);
+
+  useEffect(() => { if (module === "integrations" || module === "settings") void checkStatus(); if (module === "products") void loadProducts(); }, [module]);
   return <main className="space-y-6">
     <header className="rounded-2xl border border-[#e7dfd0] bg-[#fbf8f2] p-6 sm:p-8">
       <p className="text-xs font-semibold tracking-[0.24em] text-[#9a8151]">{data.eyebrow}</p>
