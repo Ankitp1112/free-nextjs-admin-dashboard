@@ -1,39 +1,47 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useSidebar } from "@/context/SidebarContext";
 import AppHeader from "@/layout/AppHeader";
 import AppSidebar from "@/layout/AppSidebar";
 import Backdrop from "@/layout/Backdrop";
 import React from "react";
 
-export default function AdminLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+function AdminSessionGate({ children }: { children: React.ReactNode }) {
+  const [state,setState]=useState<"checking"|"allowed"|"blocked">("checking");
+  useEffect(()=>{
+    let active=true;
+    async function verify() {
+      const token=sessionStorage.getItem("tial_access_token");
+      if(!token || !SUPABASE_URL || !SUPABASE_KEY) { window.location.replace("/signin"); return; }
+      try {
+        const headers={"apikey":SUPABASE_KEY,"Authorization":`Bearer ${token}`};
+        const userRes=await fetch(`${SUPABASE_URL}/auth/v1/user`,{headers,cache:"no-store"});
+        if(!userRes.ok) throw new Error("Session expired");
+        const user=await userRes.json();
+        const memberRes=await fetch(`${SUPABASE_URL}/rest/v1/admin_members?select=role,is_active&user_id=eq.${encodeURIComponent(user.id)}`,{headers,cache:"no-store"});
+        const members=await memberRes.json();
+        if(!memberRes.ok || !members?.[0]?.is_active || !["owner","admin","editor","viewer"].includes(members?.[0]?.role)) throw new Error("No active membership");
+        sessionStorage.setItem("tial_admin_role",members[0].role);
+        if(active) setState("allowed");
+      } catch {
+        sessionStorage.removeItem("tial_access_token"); sessionStorage.removeItem("tial_refresh_token"); sessionStorage.removeItem("tial_admin_role");
+        if(active) setState("blocked");
+        window.location.replace("/signin");
+      }
+    }
+    void verify();
+    return ()=>{active=false};
+  },[]);
+  if(state!=="allowed") return <div className="flex min-h-screen items-center justify-center bg-[#fbf8f2] p-6"><div className="max-w-sm text-center"><div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-[#b99b62] font-serif text-xl text-[#79633b]">T</div><p className="mt-4 font-serif text-2xl text-[#29251f]">Verifying TIAL access</p><p className="mt-2 text-sm text-[#71695d]">Checking your secure session and active workspace membership…</p></div></div>;
+  return <>{children}</>;
+}
+
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
-
-  // Dynamic class for main content margin based on sidebar state
-  const mainContentMargin = isMobileOpen
-    ? "ml-0"
-    : isExpanded || isHovered
-    ? "lg:ml-[290px]"
-    : "lg:ml-[90px]";
-
-  return (
-    <div className="min-h-screen xl:flex">
-      {/* Sidebar and Backdrop */}
-      <AppSidebar />
-      <Backdrop />
-      {/* Main Content Area */}
-      <div
-        className={`flex-1 transition-all  duration-300 ease-in-out ${mainContentMargin}`}
-      >
-        {/* Header */}
-        <AppHeader />
-        {/* Page Content */}
-        <div className="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">{children}</div>
-      </div>
-    </div>
-  );
+  const mainContentMargin = isMobileOpen ? "ml-0" : isExpanded || isHovered ? "lg:ml-[290px]" : "lg:ml-[90px]";
+  return <AdminSessionGate><div className="min-h-screen xl:flex"><AppSidebar /><Backdrop /><div className={`flex-1 transition-all duration-300 ease-in-out ${mainContentMargin}`}><AppHeader /><div className="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">{children}</div></div></div></AdminSessionGate>;
 }
