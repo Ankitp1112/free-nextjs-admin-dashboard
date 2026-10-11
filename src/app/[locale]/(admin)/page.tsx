@@ -36,7 +36,7 @@ export default function TialOverview() {
         <div className="rounded-xl border border-[#d8c9aa] bg-white px-4 py-3"><p className="text-xs uppercase tracking-widest text-[#9a8151]">Admin API</p><p className="mt-1 flex items-center gap-2 text-sm font-semibold text-[#29251f]"><span className={`h-2 w-2 rounded-full ${api === "online" ? "bg-emerald-500" : api === "error" ? "bg-red-500" : "bg-amber-400"}`}/>{api === "online" ? "Responding" : api === "error" ? "Unavailable" : "Checking…"}</p></div>
       </div>
     </section>
-    <div className="flex items-end justify-between gap-3"><div><p className="text-xs font-semibold tracking-[0.2em] text-[#9a8151]">WORKSPACES</p><h2 className="mt-2 font-serif text-2xl text-gray-900 dark:text-white">Manage TIAL</h2></div><span className="text-xs text-gray-500">6 modules</span></div>
+    <div className="flex items-end justify-between gap-3"><div><p className="text-xs font-semibold tracking-[0.2em] text-[#9a8151]">WORKSPACES</p><h2 className="mt-2 font-serif text-2xl text-gray-900 dark:text-white">Manage TIAL</h2></div><span className="text-xs text-gray-500">10 modules</span></div>
     <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {modules.map((item) => <Link key={item.href} href={item.href} className="group rounded-2xl border border-gray-200 bg-white p-5 transition hover:-translate-y-0.5 hover:border-[#cbb78e] hover:shadow-lg dark:border-gray-800 dark:bg-gray-900">
         <div className="flex items-center justify-between"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#f6f0e4] font-serif text-sm text-[#8a7042]">{item.number}</span><span className="text-lg text-[#9a8151] transition group-hover:translate-x-1">↗</span></div>
