@@ -95,14 +95,14 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
       </article>)}</div>}
       <p className="mt-4 rounded-lg bg-amber-50 p-3 text-xs leading-5 text-amber-900">Read-only preview. Product edits, price changes, inventory updates and publishing are intentionally disabled until separate write workflows are tested.</p>
     </section>}
-    <section className="grid gap-4 md:grid-cols-2">
+    {module !== "products" && <section className="grid gap-4 md:grid-cols-2">
       {(module === "integrations" ? liveLabels.map((item) => ({ title: item.title, key: item.key })) : data.items.map((item) => ({ title: item, key: item }))).map((item, index) => {
         const verified = item.key === "admin" ? status === "online" : item.key === "oauth" ? Boolean(shopify?.storedConnection) : item.key === "token" ? Boolean(shopify?.storedConnection) : item.key === "scopes" ? Boolean(shopify?.productRead) : false;
         const label = item.key === "admin" ? (status === "online" ? "Verified · API online" : status === "error" ? "Check failed" : "Checking") : item.key === "oauth" ? (shopify?.storedConnection ? "Connected in database" : "Not connected") : item.key === "token" ? (shopify?.storedConnection ? "Credential record found" : "Not verified") : item.key === "scopes" ? (shopify?.productRead ? "Product API read verified" : shopify?.connected ? "Connection verified; product read pending" : "Pending Shopify verification") : "Workspace capability";
         return <article key={item.key} className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900"><div className="flex items-start gap-3"><span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sm font-semibold ${verified ? "bg-green-50 text-green-700" : "bg-[#f6f0e4] text-[#8a7042]"}`}>{verified ? "✓" : `0${index + 1}`}</span><div><h2 className="font-semibold text-gray-900 dark:text-white">{item.title}</h2><p className={`mt-1 text-sm leading-5 ${verified ? "text-green-700" : "text-gray-500"}`}>{label}</p></div></div></article>;
       })}
-    </section>
+    </section>}
     {module === "integrations" && shopify?.shopDomain && <p className="rounded-xl border border-gray-200 bg-white p-4 text-sm leading-6 text-gray-700">Store: <strong>{shopify.storeName ?? shopify.shopDomain}</strong>{shopify.scopes?.length ? ` · Granted scopes: ${shopify.scopes.join(", ")}` : ""}</p>}
-    {module !== "products" && <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">{shopify?.productRead ? "Shopify product read access is verified. Product writes, media replacement and content publishing remain disabled until their individual workflows and permissions are implemented and tested." : "Live product writes, media replacement and content publishing remain disabled until the relevant API access and workflows are verified. No sample records are presented as live store data."}</p>
+    {module !== "products" && <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">{shopify?.productRead ? "Shopify product read access is verified. Product writes, media replacement and content publishing remain disabled until their individual workflows and permissions are implemented and tested." : "Live product writes, media replacement and content publishing remain disabled until the relevant API access and workflows are verified. No sample records are presented as live store data."}</p>}
   </main>;
 }
