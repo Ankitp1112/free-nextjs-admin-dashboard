@@ -302,7 +302,7 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
     {(module === "content" || module === "media") && <ContentStudio /> }
     {module === "team" && <TeamAccess />}
     {module === "settings" && <AuditLog />}
-    {module !== "products" && module !== "inventory" && module !== "orders" && module !== "customers" && module !== "insights" && module !== "content" && module !== "team" && <section className="grid gap-4 md:grid-cols-2">
+    {module !== "products" && module !== "inventory" && module !== "orders" && module !== "customers" && module !== "insights" && module !== "content" && module !== "team" && module !== "media" && <section className="grid gap-4 md:grid-cols-2">
       {(module === "integrations" ? liveLabels.map((item) => ({ title: item.title, key: item.key })) : data.items.map((item) => ({ title: item, key: item }))).map((item, index) => {
         const verified = item.key === "admin" ? status === "online" : item.key === "oauth" ? Boolean(shopify?.storedConnection) : item.key === "token" ? Boolean(shopify?.storedConnection) : item.key === "scopes" ? Boolean(shopify?.productRead) : false;
         const label = item.key === "admin" ? (status === "online" ? "Verified · API online" : status === "error" ? "Check failed" : "Checking") : item.key === "oauth" ? (shopify?.storedConnection ? "Connected in database" : "Not connected") : item.key === "token" ? (shopify?.storedConnection ? "Credential record found" : "Not verified") : item.key === "scopes" ? (shopify?.productRead ? "Product API read verified" : shopify?.connected ? "Connection verified; product read pending" : "Pending Shopify verification") : "Workspace capability";
