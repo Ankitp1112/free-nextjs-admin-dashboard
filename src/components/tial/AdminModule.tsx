@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 
-type ModuleKey = "products" | "orders" | "customers" | "insights" | "content" | "media" | "team" | "integrations" | "settings";
+type ModuleKey = "products" | "inventory" | "orders" | "customers" | "insights" | "content" | "media" | "team" | "integrations" | "settings";
 type ApiStatus = "checking" | "online" | "error";
 type Product = { id: string; title: string; status: string; handle: string; vendor?: string; productType?: string; image?: string | null; variantCount: number; variants: { id: string; title: string; price: string; sku?: string | null; inventoryQuantity?: number | null }[] };
 type LiveShopify = { connected?: boolean; storedConnection?: boolean; apiVerified?: boolean; productRead?: boolean; shopDomain?: string | null; storeName?: string | null; scopes?: string[]; errorCode?: string | null };
 const liveLabels = [{ key: "admin", title: "Supabase admin API status" }, { key: "oauth", title: "Shopify OAuth authorization" }, { key: "token", title: "Private token storage on the backend" }, { key: "scopes", title: "Required product and content scopes" }] as const;
 const copy: Record<ModuleKey, { eyebrow: string; title: string; description: string; items: string[] }> = {
   products: { eyebrow: "CATALOG", title: "Product management", description: "A dedicated workspace for TIAL's Shopify catalog. Real products and edits require a verified secure Shopify connection.", items: ["Product catalogue and variants", "Pricing, inventory and availability", "Product images and descriptions", "Review changes before publishing"] },
+  inventory: { eyebrow: "STOCK CONTROL", title: "Inventory", description: "Live Shopify stock by variant and location. Quantity changes use Shopify compare-and-set to avoid overwriting stock updated elsewhere.", items: ["Variant-level available quantities", "Stock by active Shopify location", "Safe quantity updates with conflict detection", "Shopify remains the source of truth"] },
   orders: { eyebrow: "COMMERCE", title: "Orders", description: "Live Shopify orders and fulfilment status. Sensitive customer details are not exposed in this view.", items: ["Recent orders", "Payment and fulfilment status", "Order totals from Shopify", "Refresh live order data"] },
   customers: { eyebrow: "RELATIONSHIPS", title: "Customers", description: "Live Shopify customer directory with privacy-conscious summaries.", items: ["Customer directory", "Order counts and spend summaries", "Email and contact data subject to Shopify permissions", "Refresh live customer data"] },
   insights: { eyebrow: "ANALYTICS", title: "Store Insights", description: "Website traffic and sales metrics queried from Shopify analytics. Metrics appear only when your store grants analytics access.", items: ["Online store sessions and visitors", "Traffic trends by day", "Sales performance", "No invented or demo metrics"] },
@@ -29,6 +30,14 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
   const [shopify, setShopify] = useState<LiveShopify | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [operationRows, setOperationRows] = useState<any[]>([]);
+  const [inventoryProducts, setInventoryProducts] = useState<any[]>([]);
+  const [inventoryLocations, setInventoryLocations] = useState<any[]>([]);
+  const [inventoryLoading, setInventoryLoading] = useState(false);
+  const [inventoryError, setInventoryError] = useState("");
+  const [inventoryNote, setInventoryNote] = useState("");
+  const [inventoryQuantities, setInventoryQuantities] = useState<Record<string,string>>({});
+  const [inventorySavingKey, setInventorySavingKey] = useState<string | null>(null);
+  const [inventoryMessage, setInventoryMessage] = useState("");
   const [operationLoading, setOperationLoading] = useState(false);
   const [operationError, setOperationError] = useState("");
   const [operationNote, setOperationNote] = useState("");
@@ -83,6 +92,47 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
       setOperationNote(payload.note ?? "Data retrieved directly from Shopify.");
     } catch (error) { setOperationError(error instanceof Error ? error.message : "Could not load live Shopify data."); }
     finally { setOperationLoading(false); }
+  }
+
+  async function loadInventory() {
+    setInventoryLoading(true); setInventoryError(""); setInventoryNote(""); setInventoryMessage("");
+    try {
+      const token = sessionStorage.getItem("tial_access_token"), key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      if (!token || !key) throw new Error("Sign in again to view inventory.");
+      const response = await fetch("https://fjzpknwcdecoxdvzrljy.supabase.co/functions/v1/tial-admin-inventory", { cache: "no-store", headers: { apikey: key, Authorization: `Bearer ${token}` } });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || `Inventory API returned HTTP ${response.status}`);
+      setInventoryProducts(payload.products ?? []); setInventoryLocations(payload.locations ?? []); setInventoryNote(payload.note ?? "Live inventory from Shopify.");
+      setInventoryQuantities(old => {
+        const next = { ...old };
+        for (const p of payload.products ?? []) for (const v of p.variants ?? []) for (const level of v.levels ?? []) {
+          const key = `${v.inventoryItemId}|${level.locationId}`;
+          if (next[key] === undefined) next[key] = String(level.available ?? 0);
+        }
+        return next;
+      });
+    } catch (error) { setInventoryError(error instanceof Error ? error.message : "Could not load Shopify inventory."); }
+    finally { setInventoryLoading(false); }
+  }
+  async function saveInventoryQuantity(variant: any, level: any) {
+    const keyName = `${variant.inventoryItemId}|${level.locationId}`;
+    const quantity = Number(inventoryQuantities[keyName]);
+    if (!Number.isInteger(quantity) || quantity < 0 || quantity > 1000000) { setInventoryError("Available stock must be a whole number from 0 to 1,000,000."); return; }
+    if (!Number.isInteger(level.available) || level.available < 0) { setInventoryError("Shopify did not provide a safe current quantity for comparison. Refresh inventory before editing."); return; }
+    setInventorySavingKey(keyName); setInventoryError(""); setInventoryMessage("");
+    try {
+      const token = sessionStorage.getItem("tial_access_token"), key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      if (!token || !key) throw new Error("Sign in again before changing stock.");
+      const response = await fetch("https://fjzpknwcdecoxdvzrljy.supabase.co/functions/v1/tial-admin-inventory", {
+        method: "PATCH", headers: { apikey: key, Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ inventoryItemId: variant.inventoryItemId, locationId: level.locationId, quantity, compareQuantity: level.available })
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || `Stock update failed (HTTP ${response.status})`);
+      setInventoryMessage(`Stock updated in Shopify: ${variant.title} at ${level.locationName} → ${quantity} available.`);
+      await loadInventory();
+    } catch (error) { setInventoryError(error instanceof Error ? error.message : "Could not update stock."); }
+    finally { setInventorySavingKey(null); }
   }
 
   async function loadProducts() {
@@ -178,7 +228,7 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
     finally { setSavingProductId(null); }
   }
 
-  useEffect(() => { setAdminRole(sessionStorage.getItem("tial_admin_role") || "viewer"); if (module === "integrations" || module === "settings") void checkStatus(); if (module === "products") void loadProducts(); if (module === "orders" || module === "customers" || module === "insights") void loadOperations(); }, [module]);
+  useEffect(() => { setAdminRole(sessionStorage.getItem("tial_admin_role") || "viewer"); if (module === "integrations" || module === "settings") void checkStatus(); if (module === "products") void loadProducts(); if (module === "inventory") void loadInventory(); if (module === "orders" || module === "customers" || module === "insights") void loadOperations(); }, [module]);
   return <main className="space-y-6">
     <header className="rounded-2xl border border-[#e7dfd0] bg-[#fbf8f2] p-6 sm:p-8">
       <p className="text-xs font-semibold tracking-[0.24em] text-[#9a8151]">{data.eyebrow}</p>
@@ -250,7 +300,7 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
       </article>)}</div>}
       <p className="mt-4 rounded-lg bg-amber-50 p-3 text-xs leading-5 text-amber-900">Edits to title, status and variant prices save directly to the live Shopify store. Verify every change before saving; changes may affect what customers see and pay.</p>{saveMessage && <p className="mt-3 rounded-lg bg-green-50 p-3 text-sm text-green-800">{saveMessage}</p>}
     </section>}
-    {(module === "orders" || module === "customers" || module === "insights") && <section className="rounded-2xl border border-[#e7dfd0] bg-white p-5">
+    {module === "inventory" && <section className="rounded-2xl border border-[#e7dfd0] bg-white p-5">\n      <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-semibold text-[#29251f]">Live stock by variant and location</h2><p className="mt-1 text-sm text-[#71695d]">Only active locations and quantities returned by Shopify are shown.</p></div><button onClick={() => void loadInventory()} disabled={inventoryLoading} className="rounded-lg border border-[#cbb78e] px-4 py-2 text-sm font-medium text-[#79633b] disabled:opacity-50">{inventoryLoading ? "Refreshing…" : "Refresh inventory"}</button></div>\n      {!canEdit && <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Viewer access: inventory is read-only.</p>}\n      {inventoryError && <p role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">{inventoryError}</p>}\n      {inventoryNote && !inventoryError && <p className="mt-3 rounded-lg bg-[#fbf8f2] p-3 text-xs text-[#71695d]">{inventoryNote}</p>}\n      {inventoryLoading && <p className="mt-4 text-sm text-gray-500">Loading live stock from Shopify…</p>}\n      {!inventoryLoading && !inventoryError && inventoryProducts.length === 0 && <p className="mt-4 rounded-lg border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500">No products were returned. Check Shopify permissions or refresh.</p>}\n      <div className="mt-4 space-y-4">{inventoryProducts.map((p:any)=><article key={p.id} className="rounded-xl border border-gray-200 p-4"><h3 className="font-semibold text-[#29251f]">{p.title}</h3><div className="mt-3 space-y-3">{(p.variants??[]).map((v:any)=><div key={v.id} className="rounded-lg bg-[#fbf8f2] p-3"><div className="flex flex-wrap items-start justify-between gap-2"><div><p className="text-sm font-medium text-gray-900">{v.title}</p><p className="mt-1 text-xs text-gray-500">{v.sku ? `SKU: ${v.sku} · ` : ""}{v.tracked ? "Inventory tracked" : "Inventory tracking disabled"}</p></div></div>{!v.tracked && <p className="mt-2 text-xs text-amber-800">Enable inventory tracking for this variant in Shopify before changing stock.</p>}{v.tracked && (v.levels??[]).filter((level:any)=>level.isActive).map((level:any)=><div key={level.locationId} className="mt-3 grid gap-2 sm:grid-cols-[1fr_110px_auto] sm:items-end"><div><p className="text-xs text-gray-500">{level.locationName}</p><p className="mt-1 text-sm text-gray-700">Available: {level.available ?? "Not reported"}{level.committed !== null ? ` · Committed: ${level.committed}` : ""}</p></div><label className="text-xs text-gray-600">New available<input type="number" min="0" max="1000000" step="1" value={inventoryQuantities[`${v.inventoryItemId}|${level.locationId}`] ?? String(level.available ?? 0)} onChange={e=>setInventoryQuantities(old=>({...old,[`${v.inventoryItemId}|${level.locationId}`]:e.target.value}))} disabled={!canEdit} className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 disabled:bg-gray-100"/></label><button onClick={()=>void saveInventoryQuantity(v,level)} disabled={!canEdit||inventorySavingKey===`${v.inventoryItemId}|${level.locationId}`||String(level.available)===inventoryQuantities[`${v.inventoryItemId}|${level.locationId}`]} className="rounded-lg bg-[#29251f] px-3 py-2 text-sm font-medium text-white disabled:opacity-40">{inventorySavingKey===`${v.inventoryItemId}|${level.locationId}`?"Saving…":"Save stock"}</button></div>)}{v.tracked && !(v.levels??[]).some((level:any)=>level.isActive) && <p className="mt-2 text-xs text-gray-500">No active inventory level returned for this variant.</p>}</div>)}</div></article>)}</div>\n      {inventoryMessage && <p role="status" className="mt-4 rounded-lg bg-green-50 p-3 text-sm text-green-800">{inventoryMessage}</p>}\n      <p className="mt-4 rounded-lg bg-amber-50 p-3 text-xs leading-5 text-amber-900">Stock changes apply to the selected Shopify location. Each save compares against the last quantity loaded; if another user changes stock first, refresh and review the new value before retrying.</p>\n    </section>}\n    {(module === "orders" || module === "customers" || module === "insights") && <section className="rounded-2xl border border-[#e7dfd0] bg-white p-5">
       <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-semibold text-[#29251f]">{module === "orders" ? "Recent Shopify orders" : module === "customers" ? "Shopify customers" : "Website traffic & sales"}</h2><p className="mt-1 text-sm text-[#71695d]">{module === "insights" ? "ShopifyQL analytics · last 30 days where supported" : "Live data from the connected TIAL Shopify store"}</p></div><button onClick={() => void loadOperations()} disabled={operationLoading} className="rounded-lg border border-[#cbb78e] px-4 py-2 text-sm font-medium text-[#79633b] disabled:opacity-50">{operationLoading ? "Refreshing…" : "Refresh data"}</button></div>
       {operationError && <div role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">{operationError}<p className="mt-1 text-xs">If this reports missing permission, use Integrations → Connect Shopify securely to reauthorize the expanded scopes.</p></div>}
       {operationNote && !operationError && <p className="mt-3 rounded-lg bg-[#fbf8f2] p-3 text-xs text-[#71695d]">{operationNote}</p>}
@@ -260,7 +310,7 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
       {operationRows.length > 0 && module === "insights" && <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{operationRows.map((row,i)=><article key={String(row.metric ?? row.date ?? i)} className="rounded-xl border border-[#e7dfd0] bg-[#fbf8f2] p-4"><p className="text-xs uppercase tracking-wide text-[#79633b]">{String(row.metric ?? row.date ?? "Metric")}</p><p className="mt-2 break-words text-xl font-semibold text-[#29251f]">{String(row.value ?? row.sessions ?? row.visitors ?? JSON.stringify(row))}</p>{row.date && <p className="mt-1 text-xs text-gray-500">{String(row.date)}</p>}</article>)}</div>}
       <p className="mt-4 text-xs leading-5 text-gray-500">These are read-only reports. Shopify remains authoritative; no orders, customers or analytics are stored as invented demo records.</p>
     </section>}
-    {module !== "products" && module !== "orders" && module !== "customers" && module !== "insights" && <section className="grid gap-4 md:grid-cols-2">
+    {module !== "products" && module !== "inventory" && module !== "orders" && module !== "customers" && module !== "insights" && <section className="grid gap-4 md:grid-cols-2">
       {(module === "integrations" ? liveLabels.map((item) => ({ title: item.title, key: item.key })) : data.items.map((item) => ({ title: item, key: item }))).map((item, index) => {
         const verified = item.key === "admin" ? status === "online" : item.key === "oauth" ? Boolean(shopify?.storedConnection) : item.key === "token" ? Boolean(shopify?.storedConnection) : item.key === "scopes" ? Boolean(shopify?.productRead) : false;
         const label = item.key === "admin" ? (status === "online" ? "Verified · API online" : status === "error" ? "Check failed" : "Checking") : item.key === "oauth" ? (shopify?.storedConnection ? "Connected in database" : "Not connected") : item.key === "token" ? (shopify?.storedConnection ? "Credential record found" : "Not verified") : item.key === "scopes" ? (shopify?.productRead ? "Product API read verified" : shopify?.connected ? "Connection verified; product read pending" : "Pending Shopify verification") : "Workspace capability";
