@@ -4,12 +4,16 @@ import { Link } from "@/i18n/navigation";
 import { useEffect, useState } from "react";
 
 const modules = [
-  { href: "/products", number: "01", title: "Products", description: "Catalog, variants, pricing and inventory." },
-  { href: "/content", number: "02", title: "Content studio", description: "Brand stories, campaigns and editorial drafts." },
-  { href: "/media", number: "03", title: "Homepage media", description: "Storefront imagery and asset review." },
-  { href: "/integrations", number: "04", title: "Shopify connection", description: "OAuth setup and API health checks." },
-  { href: "/team", number: "05", title: "Team & access", description: "Roles, membership and access review." },
-  { href: "/settings", number: "06", title: "Settings", description: "Workspace configuration and security." },
+  { href: "/products", number: "01", title: "Products", description: "Catalog, variants, pricing and product media." },
+  { href: "/inventory", number: "02", title: "Inventory", description: "Stock by variant and Shopify location." },
+  { href: "/orders", number: "03", title: "Orders", description: "Recent orders, payment and fulfilment status." },
+  { href: "/customers", number: "04", title: "Customers", description: "Customer records with restricted access." },
+  { href: "/insights", number: "05", title: "Store insights", description: "Traffic and sales metrics when Shopify reports allow access." },
+  { href: "/content", number: "06", title: "Content studio", description: "Brand stories, campaigns and editorial drafts." },
+  { href: "/media", number: "07", title: "Homepage media", description: "Storefront imagery and asset review." },
+  { href: "/integrations", number: "08", title: "Shopify connection", description: "OAuth setup and API health checks." },
+  { href: "/team", number: "09", title: "Team & access", description: "Roles, membership and access review." },
+  { href: "/settings", number: "10", title: "Settings", description: "Workspace configuration and security." },
 ];
 
 export default function TialOverview() {
