@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 
 type ModuleKey = "products" | "content" | "media" | "team" | "integrations" | "settings";
 type ApiStatus = "checking" | "online" | "error";
+type LiveShopify = { connected?: boolean; storedConnection?: boolean; apiVerified?: boolean; productRead?: boolean; shopDomain?: string | null; storeName?: string | null; scopes?: string[]; errorCode?: string | null };
+const liveLabels = [{ key: "admin", title: "Supabase admin API status" }, { key: "oauth", title: "Shopify OAuth authorization" }, { key: "token", title: "Private token storage on the backend" }, { key: "scopes", title: "Required product and content scopes" }] as const;
 const copy: Record<ModuleKey, { eyebrow: string; title: string; description: string; items: string[] }> = {
   products: { eyebrow: "CATALOG", title: "Product management", description: "A dedicated workspace for TIAL's Shopify catalog. Real products and edits require a verified secure Shopify connection.", items: ["Product catalogue and variants", "Pricing, inventory and availability", "Product images and descriptions", "Review changes before publishing"] },
   content: { eyebrow: "BRAND CONTENT", title: "Content Studio", description: "Prepare brand stories, campaign copy and editorial content for review before publishing.", items: ["Brand story and about-page copy", "Campaign and collection content", "Draft / review / publish workflow", "Editorial history and audit trail"] },
@@ -20,6 +22,7 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
   const [preview, setPreview] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState("");
+  const [shopify, setShopify] = useState<LiveShopify | null>(null);
   const data = copy[module];
   async function checkStatus() {
     setStatus("checking"); setDetail("Checking the admin API…");
@@ -30,7 +33,7 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
       const response = await fetch("https://fjzpknwcdecoxdvzrljy.supabase.co/functions/v1/tial-admin-status", { cache: "no-store", headers: { apikey: key, Authorization: `Bearer ${token}` } });
       if (!response.ok) throw new Error(`API returned HTTP ${response.status}`);
       const payload = await response.json();
-      setStatus("online"); setDetail(`API responded successfully${payload.version ? ` · version ${payload.version}` : ""}. Shopify authorization is a separate check.`);
+      setStatus("online"); setShopify(payload.shopify ?? null); setDetail(`API responded successfully${payload.version ? ` · version ${payload.version}` : ""}. ${payload.shopify?.apiVerified ? `Shopify API verified${payload.shopify?.storeName ? ` · ${payload.shopify.storeName}` : ""}.` : `Shopify check: ${payload.shopify?.errorCode ?? "pending authorization"}.`}`);
     } catch (error) { setStatus("error"); setDetail(error instanceof Error ? error.message : "Unable to reach the admin API."); }
   }
   useEffect(() => { if (module === "integrations" || module === "settings") void checkStatus(); }, [module]);
@@ -60,8 +63,13 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
       {preview && <div className="mt-4 rounded-xl border border-[#d8c9aa] bg-[#fbf8f2] p-4"><p className="text-xs font-semibold tracking-widest text-[#9a8151]">LOCAL PREVIEW · NOT SAVED</p><h3 className="mt-2 font-serif text-xl text-[#29251f]">{draftTitle}</h3><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[#71695d]">{draftBody || "No body text added yet."}</p></div>}
     </section>}
     <section className="grid gap-4 md:grid-cols-2">
-      {data.items.map((item, index) => <article key={item} className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900"><div className="flex items-start gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#f6f0e4] text-sm font-semibold text-[#8a7042]">0{index + 1}</span><div><h2 className="font-semibold text-gray-900 dark:text-white">{item}</h2><p className="mt-1 text-sm leading-5 text-gray-500">Workspace capability · pending live integration</p></div></div></article>)}
+      {(module === "integrations" ? liveLabels.map((item) => ({ title: item.title, key: item.key })) : data.items.map((item) => ({ title: item, key: item }))).map((item, index) => {
+        const verified = item.key === "admin" ? status === "online" : item.key === "oauth" ? Boolean(shopify?.storedConnection) : item.key === "token" ? Boolean(shopify?.storedConnection) : item.key === "scopes" ? Boolean(shopify?.productRead) : false;
+        const label = item.key === "admin" ? (status === "online" ? "Verified · API online" : status === "error" ? "Check failed" : "Checking") : item.key === "oauth" ? (shopify?.storedConnection ? "Connected in database" : "Not connected") : item.key === "token" ? (shopify?.storedConnection ? "Credential record found" : "Not verified") : item.key === "scopes" ? (shopify?.productRead ? "Product API read verified" : shopify?.connected ? "Connection verified; product read pending" : "Pending Shopify verification") : "Workspace capability";
+        return <article key={item.key} className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900"><div className="flex items-start gap-3"><span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sm font-semibold ${verified ? "bg-green-50 text-green-700" : "bg-[#f6f0e4] text-[#8a7042]"}`}>{verified ? "✓" : `0${index + 1}`}</span><div><h2 className="font-semibold text-gray-900 dark:text-white">{item.title}</h2><p className={`mt-1 text-sm leading-5 ${verified ? "text-green-700" : "text-gray-500"}`}>{label}</p></div></div></article>;
+      })}
     </section>
-    <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">Live product writes, media replacement and content publishing remain disabled until authenticated admin access and Shopify OAuth are verified. No sample records are presented as live store data.</p>
+    {module === "integrations" && shopify?.shopDomain && <p className="rounded-xl border border-gray-200 bg-white p-4 text-sm leading-6 text-gray-700">Store: <strong>{shopify.storeName ?? shopify.shopDomain}</strong>{shopify.scopes?.length ? ` · Granted scopes: ${shopify.scopes.join(", ")}` : ""}</p>}
+    <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">{shopify?.productRead ? "Shopify product read access is verified. Product writes, media replacement and content publishing remain disabled until their individual workflows and permissions are implemented and tested." : "Live product writes, media replacement and content publishing remain disabled until the relevant API access and workflows are verified. No sample records are presented as live store data."}</p>
   </main>;
 }
