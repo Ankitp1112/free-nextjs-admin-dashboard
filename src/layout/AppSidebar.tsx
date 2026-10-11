@@ -285,14 +285,12 @@ const AppSidebar: React.FC = () => {
           !isExpanded && !isHovered ? "xl:justify-center" : "justify-start"
         }`}
       >
-        <Link href="/" className="flex items-center gap-3" aria-label="TIAL Admin home">
-          <span className="flex h-10 w-10 items-center justify-center rounded-full border border-[#b99b62] bg-[#f8f5ef] font-serif text-lg font-semibold tracking-tight text-[#29251f]">T</span>
+        <Link href="/" className="flex items-center gap-3" aria-label="TIAL Clothing Admin home">
           {isExpanded || isHovered || isMobileOpen ? (
-            <span className="flex flex-col leading-none">
-              <span className="font-serif text-xl font-semibold tracking-[0.22em] text-[#29251f] dark:text-[#f4eee3]">TIAL</span>
-              <span className="mt-1 text-[9px] tracking-[0.2em] text-[#9a8151] uppercase">Admin Studio</span>
-            </span>
-          ) : null}
+            <Image src="/images/logo/tial-wordmark.svg" alt="TIAL Clothing" width={132} height={45} priority className="h-auto w-[132px] object-contain" />
+          ) : (
+            <span className="flex h-10 w-10 items-center justify-center rounded-full border border-[#b99b62] bg-[#f8f5ef] font-serif text-lg font-semibold tracking-tight text-[#92764b]">T</span>
+          )}
         </Link>
       </div>
       <div className="no-scrollbar flex flex-col overflow-y-auto duration-300 ease-linear">
