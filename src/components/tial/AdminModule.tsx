@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 type ModuleKey = "products" | "content" | "media" | "team" | "integrations" | "settings";
 type ApiStatus = "checking" | "online" | "error";
+type Product = { id: string; title: string; status: string; handle: string; vendor?: string; productType?: string; image?: string | null; variantCount: number; variants: { id: string; title: string; price: string; sku?: string | null; inventoryQuantity?: number | null }[] };
 type LiveShopify = { connected?: boolean; storedConnection?: boolean; apiVerified?: boolean; productRead?: boolean; shopDomain?: string | null; storeName?: string | null; scopes?: string[]; errorCode?: string | null };
 const liveLabels = [{ key: "admin", title: "Supabase admin API status" }, { key: "oauth", title: "Shopify OAuth authorization" }, { key: "token", title: "Private token storage on the backend" }, { key: "scopes", title: "Required product and content scopes" }] as const;
 const copy: Record<ModuleKey, { eyebrow: string; title: string; description: string; items: string[] }> = {
@@ -23,6 +24,10 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState("");
   const [shopify, setShopify] = useState<LiveShopify | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [productsLoading, setProductsLoading] = useState(false);
+  const [productsError, setProductsError] = useState("");
+  const [productCount, setProductCount] = useState<number | null>(null);
   const data = copy[module];
   async function checkStatus() {
     setStatus("checking"); setDetail("Checking the admin API…");
@@ -36,7 +41,21 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
       setStatus("online"); setShopify(payload.shopify ?? null); setDetail(`API responded successfully${payload.version ? ` · version ${payload.version}` : ""}. ${payload.shopify?.apiVerified ? `Shopify API verified${payload.shopify?.storeName ? ` · ${payload.shopify.storeName}` : ""}.` : `Shopify check: ${payload.shopify?.errorCode ?? "pending authorization"}.`}`);
     } catch (error) { setStatus("error"); setDetail(error instanceof Error ? error.message : "Unable to reach the admin API."); }
   }
-  useEffect(() => { if (module === "integrations" || module === "settings") void checkStatus(); }, [module]);
+  async function loadProducts() {
+    setProductsLoading(true); setProductsError("");
+    try {
+      const token = sessionStorage.getItem("tial_access_token");
+      const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      if (!token || !key) throw new Error("Sign in again to view Shopify products.");
+      const response = await fetch("https://fjzpknwcdecoxdvzrljy.supabase.co/functions/v1/tial-admin-products?limit=100", { cache: "no-store", headers: { apikey: key, Authorization: `Bearer ${token}` } });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || `Product API returned HTTP ${response.status}`);
+      setProducts(payload.products ?? []); setProductCount(payload.count ?? 0);
+    } catch (error) {
+      setProductsError(error instanceof Error ? error.message : "Could not load products.");
+    } finally { setProductsLoading(false); }
+  }
+  useEffect(() => { if (module === "integrations" || module === "settings") void checkStatus(); if (module === "products") void loadProducts(); }, [module]);
   return <main className="space-y-6">
     <header className="rounded-2xl border border-[#e7dfd0] bg-[#fbf8f2] p-6 sm:p-8">
       <p className="text-xs font-semibold tracking-[0.24em] text-[#9a8151]">{data.eyebrow}</p>
@@ -62,6 +81,20 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
       </form>
       {preview && <div className="mt-4 rounded-xl border border-[#d8c9aa] bg-[#fbf8f2] p-4"><p className="text-xs font-semibold tracking-widest text-[#9a8151]">LOCAL PREVIEW · NOT SAVED</p><h3 className="mt-2 font-serif text-xl text-[#29251f]">{draftTitle}</h3><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[#71695d]">{draftBody || "No body text added yet."}</p></div>}
     </section>}
+    {module === "products" && <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 dark:border-gray-800 dark:bg-gray-900">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div><h2 className="text-lg font-semibold text-gray-900 dark:text-white">Live Shopify products</h2><p className="mt-1 text-sm text-gray-500">{productCount === null ? "Loading your store catalogue…" : `${productCount} products returned from Shopify · read-only mode`}</p></div>
+        <button onClick={() => void loadProducts()} disabled={productsLoading} className="rounded-lg border border-[#cbb78e] px-4 py-2 text-sm font-medium text-[#79633b] disabled:opacity-60">{productsLoading ? "Refreshing…" : "Refresh products"}</button>
+      </div>
+      {productsError && <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{productsError}<p className="mt-1">If this mentions a missing scope, reconnect Shopify after confirming the app has read_products access.</p></div>}
+      {productsLoading && products.length === 0 && <p className="py-8 text-center text-sm text-gray-500">Fetching real products securely from Shopify…</p>}
+      {!productsLoading && !productsError && products.length === 0 && productCount === 0 && <p className="py-8 text-center text-sm text-gray-500">Shopify returned no products for this store.</p>}
+      {products.length > 0 && <div className="mt-4 space-y-3">{products.map((product) => <article key={product.id} className="flex gap-3 rounded-xl border border-gray-100 p-3 dark:border-gray-800">
+        {product.image ? <img src={product.image} alt="" loading="lazy" className="h-20 w-20 rounded-lg border border-gray-100 object-cover dark:border-gray-800" /> : <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-xs text-gray-500 dark:bg-gray-800">No image</div>}
+        <div className="min-w-0 flex-1"><h3 className="font-semibold text-gray-900 dark:text-white">{product.title}</h3><p className="mt-1 break-all text-xs text-gray-500">{product.handle}</p><div className="mt-2 flex flex-wrap gap-2 text-xs"><span className="rounded-full bg-gray-100 px-2 py-1 text-gray-700 dark:bg-gray-800 dark:text-gray-300">{product.status}</span><span className="rounded-full bg-gray-100 px-2 py-1 text-gray-700 dark:bg-gray-800 dark:text-gray-300">{product.variantCount} variants</span></div>{product.variants?.[0] && <p className="mt-2 text-sm text-gray-700 dark:text-gray-300">From ₹{product.variants[0].price} · {product.variants[0].title}</p>}</div>
+      </article>)}</div>}
+      <p className="mt-4 rounded-lg bg-amber-50 p-3 text-xs leading-5 text-amber-900">Read-only preview. Product edits, price changes, inventory updates and publishing are intentionally disabled until separate write workflows are tested.</p>
+    </section>}
     <section className="grid gap-4 md:grid-cols-2">
       {(module === "integrations" ? liveLabels.map((item) => ({ title: item.title, key: item.key })) : data.items.map((item) => ({ title: item, key: item }))).map((item, index) => {
         const verified = item.key === "admin" ? status === "online" : item.key === "oauth" ? Boolean(shopify?.storedConnection) : item.key === "token" ? Boolean(shopify?.storedConnection) : item.key === "scopes" ? Boolean(shopify?.productRead) : false;
@@ -70,6 +103,6 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
       })}
     </section>
     {module === "integrations" && shopify?.shopDomain && <p className="rounded-xl border border-gray-200 bg-white p-4 text-sm leading-6 text-gray-700">Store: <strong>{shopify.storeName ?? shopify.shopDomain}</strong>{shopify.scopes?.length ? ` · Granted scopes: ${shopify.scopes.join(", ")}` : ""}</p>}
-    <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">{shopify?.productRead ? "Shopify product read access is verified. Product writes, media replacement and content publishing remain disabled until their individual workflows and permissions are implemented and tested." : "Live product writes, media replacement and content publishing remain disabled until the relevant API access and workflows are verified. No sample records are presented as live store data."}</p>
+    {module !== "products" && <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">{shopify?.productRead ? "Shopify product read access is verified. Product writes, media replacement and content publishing remain disabled until their individual workflows and permissions are implemented and tested." : "Live product writes, media replacement and content publishing remain disabled until the relevant API access and workflows are verified. No sample records are presented as live store data."}</p>
   </main>;
 }
