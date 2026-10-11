@@ -8,7 +8,7 @@ import { ChevronDownIcon } from "@/icons";
 import { cn } from "@/utils";
 import { useLocale, useTranslations } from "next-intl";
 import Image from "next/image";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 
@@ -18,6 +18,14 @@ export default function UserDropdown() {
   const router = useRouter();
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+  const [profile, setProfile] = useState({ name: "TIAL Admin", email: "" });
+
+  useEffect(() => {
+    setProfile({
+      name: sessionStorage.getItem("tial_admin_name") || "TIAL Admin",
+      email: sessionStorage.getItem("tial_admin_email") || "",
+    });
+  }, []);
   const [isSubDropdownOpen, setIsSubDropdownOpen] = useState(false);
   const subDropdownRef = useRef<HTMLLIElement>(null);
 
@@ -60,7 +68,7 @@ export default function UserDropdown() {
           />
         </span>
 
-        <span className="me-1 block text-theme-sm font-medium">Musharof</span>
+        <span className="me-1 block text-theme-sm font-medium">{profile.name.split(" ")[0]}</span>
 
         <ChevronDownIcon
           className={`size-5 text-gray-500 transition-transform duration-200 dark:text-gray-400 ${
@@ -76,10 +84,10 @@ export default function UserDropdown() {
       >
         <div>
           <span className="block text-theme-sm font-medium text-gray-700 dark:text-gray-400">
-            Musharof Chowdhury
+            {profile.name}
           </span>
           <span className="mt-0.5 block text-theme-xs text-gray-500 dark:text-gray-400">
-            randomuser@pimjo.com
+            {profile.email || "Signed-in TIAL administrator"}
           </span>
         </div>
 
