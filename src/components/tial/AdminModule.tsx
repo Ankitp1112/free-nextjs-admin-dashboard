@@ -2,13 +2,16 @@
 
 import { useEffect, useState } from "react";
 
-type ModuleKey = "products" | "content" | "media" | "team" | "integrations" | "settings";
+type ModuleKey = "products" | "orders" | "customers" | "insights" | "content" | "media" | "team" | "integrations" | "settings";
 type ApiStatus = "checking" | "online" | "error";
 type Product = { id: string; title: string; status: string; handle: string; vendor?: string; productType?: string; image?: string | null; variantCount: number; variants: { id: string; title: string; price: string; sku?: string | null; inventoryQuantity?: number | null }[] };
 type LiveShopify = { connected?: boolean; storedConnection?: boolean; apiVerified?: boolean; productRead?: boolean; shopDomain?: string | null; storeName?: string | null; scopes?: string[]; errorCode?: string | null };
 const liveLabels = [{ key: "admin", title: "Supabase admin API status" }, { key: "oauth", title: "Shopify OAuth authorization" }, { key: "token", title: "Private token storage on the backend" }, { key: "scopes", title: "Required product and content scopes" }] as const;
 const copy: Record<ModuleKey, { eyebrow: string; title: string; description: string; items: string[] }> = {
   products: { eyebrow: "CATALOG", title: "Product management", description: "A dedicated workspace for TIAL's Shopify catalog. Real products and edits require a verified secure Shopify connection.", items: ["Product catalogue and variants", "Pricing, inventory and availability", "Product images and descriptions", "Review changes before publishing"] },
+  orders: { eyebrow: "COMMERCE", title: "Orders", description: "Live Shopify orders and fulfilment status. Sensitive customer details are not exposed in this view.", items: ["Recent orders", "Payment and fulfilment status", "Order totals from Shopify", "Refresh live order data"] },
+  customers: { eyebrow: "RELATIONSHIPS", title: "Customers", description: "Live Shopify customer directory with privacy-conscious summaries.", items: ["Customer directory", "Order counts and spend summaries", "Email and contact data subject to Shopify permissions", "Refresh live customer data"] },
+  insights: { eyebrow: "ANALYTICS", title: "Store Insights", description: "Website traffic and sales metrics queried from Shopify analytics. Metrics appear only when your store grants analytics access.", items: ["Online store sessions and visitors", "Traffic trends by day", "Sales performance", "No invented or demo metrics"] },
   content: { eyebrow: "BRAND CONTENT", title: "Content Studio", description: "Prepare brand stories, campaign copy and editorial content for review before publishing.", items: ["Brand story and about-page copy", "Campaign and collection content", "Draft / review / publish workflow", "Editorial history and audit trail"] },
   media: { eyebrow: "STOREFRONT", title: "Homepage Media", description: "Review visual assets planned for TIAL's storefront without changing the published Shopify theme directly.", items: ["Homepage hero and campaign imagery", "Image previews and alt text", "Asset review before publishing", "Safe separation from the live theme"] },
   team: { eyebrow: "ACCESS CONTROL", title: "Team & Access", description: "The backend has an admin-membership model. Invitations and role changes require authenticated owner access.", items: ["Owner, admin, editor and viewer roles", "Active / inactive membership", "Access review and audit events", "Least-privilege permissions"] },
@@ -25,6 +28,10 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
   const [connectError, setConnectError] = useState("");
   const [shopify, setShopify] = useState<LiveShopify | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
+  const [operationRows, setOperationRows] = useState<any[]>([]);
+  const [operationLoading, setOperationLoading] = useState(false);
+  const [operationError, setOperationError] = useState("");
+  const [operationNote, setOperationNote] = useState("");
   const [productsLoading, setProductsLoading] = useState(false);
   const [productsError, setProductsError] = useState("");
   const [productCount, setProductCount] = useState<number | null>(null);
@@ -63,6 +70,21 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
       setStatus("online"); setShopify(payload.shopify ?? null); setDetail(`API responded successfully${payload.version ? ` · version ${payload.version}` : ""}. ${payload.shopify?.apiVerified ? `Shopify API verified${payload.shopify?.storeName ? ` · ${payload.shopify.storeName}` : ""}.` : `Shopify check: ${payload.shopify?.errorCode ?? "pending authorization"}.`}`);
     } catch (error) { setStatus("error"); setDetail(error instanceof Error ? error.message : "Unable to reach the admin API."); }
   }
+  async function loadOperations() {
+    setOperationLoading(true); setOperationError(""); setOperationNote(""); setOperationRows([]);
+    try {
+      const token = sessionStorage.getItem("tial_access_token"), key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      if (!token || !key) throw new Error("Sign in again to access live Shopify data.");
+      const action = module === "orders" ? "orders" : module === "customers" ? "customers" : "analytics";
+      const response = await fetch(`https://fjzpknwcdecoxdvzrljy.supabase.co/functions/v1/tial-admin-operations?action=${action}`, { cache: "no-store", headers: { apikey: key, Authorization: `Bearer ${token}` } });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || `Shopify returned HTTP ${response.status}`);
+      setOperationRows(payload.rows ?? []);
+      setOperationNote(payload.note ?? "Data retrieved directly from Shopify.");
+    } catch (error) { setOperationError(error instanceof Error ? error.message : "Could not load live Shopify data."); }
+    finally { setOperationLoading(false); }
+  }
+
   async function loadProducts() {
     setProductsLoading(true); setProductsError("");
     try {
@@ -156,7 +178,7 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
     finally { setSavingProductId(null); }
   }
 
-  useEffect(() => { setAdminRole(sessionStorage.getItem("tial_admin_role") || "viewer"); if (module === "integrations" || module === "settings") void checkStatus(); if (module === "products") void loadProducts(); }, [module]);
+  useEffect(() => { setAdminRole(sessionStorage.getItem("tial_admin_role") || "viewer"); if (module === "integrations" || module === "settings") void checkStatus(); if (module === "products") void loadProducts(); if (module === "orders" || module === "customers" || module === "insights") void loadOperations(); }, [module]);
   return <main className="space-y-6">
     <header className="rounded-2xl border border-[#e7dfd0] bg-[#fbf8f2] p-6 sm:p-8">
       <p className="text-xs font-semibold tracking-[0.24em] text-[#9a8151]">{data.eyebrow}</p>
@@ -228,7 +250,17 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
       </article>)}</div>}
       <p className="mt-4 rounded-lg bg-amber-50 p-3 text-xs leading-5 text-amber-900">Edits to title, status and variant prices save directly to the live Shopify store. Verify every change before saving; changes may affect what customers see and pay.</p>{saveMessage && <p className="mt-3 rounded-lg bg-green-50 p-3 text-sm text-green-800">{saveMessage}</p>}
     </section>}
-    {module !== "products" && <section className="grid gap-4 md:grid-cols-2">
+    {(module === "orders" || module === "customers" || module === "insights") && <section className="rounded-2xl border border-[#e7dfd0] bg-white p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-semibold text-[#29251f]">{module === "orders" ? "Recent Shopify orders" : module === "customers" ? "Shopify customers" : "Website traffic & sales"}</h2><p className="mt-1 text-sm text-[#71695d]">{module === "insights" ? "ShopifyQL analytics · last 30 days where supported" : "Live data from the connected TIAL Shopify store"}</p></div><button onClick={() => void loadOperations()} disabled={operationLoading} className="rounded-lg border border-[#cbb78e] px-4 py-2 text-sm font-medium text-[#79633b] disabled:opacity-50">{operationLoading ? "Refreshing…" : "Refresh data"}</button></div>
+      {operationError && <div role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">{operationError}<p className="mt-1 text-xs">If this reports missing permission, use Integrations → Connect Shopify securely to reauthorize the expanded scopes.</p></div>}
+      {operationNote && !operationError && <p className="mt-3 rounded-lg bg-[#fbf8f2] p-3 text-xs text-[#71695d]">{operationNote}</p>}
+      {operationLoading && <p className="mt-4 text-sm text-gray-500">Loading verified Shopify data…</p>}
+      {!operationLoading && !operationError && operationRows.length === 0 && <p className="mt-4 rounded-lg border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500">No rows returned. This can mean the store has no matching data or Shopify analytics access is not available.</p>}
+      {operationRows.length > 0 && module !== "insights" && <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[640px] text-left text-sm"><thead className="border-b text-xs uppercase tracking-wide text-gray-500"><tr>{Object.keys(operationRows[0]).map(k=><th key={k} className="px-3 py-3">{k.replace(/([A-Z])/g," $1")}</th>)}</tr></thead><tbody>{operationRows.map((row,i)=><tr key={row.id ?? row.email ?? i} className="border-b last:border-0">{Object.entries(row).map(([k,v])=><td key={k} className="px-3 py-3 align-top text-gray-800">{typeof v === "object" ? JSON.stringify(v) : String(v ?? "—")}</td>)}</tr>)}</tbody></table></div>}
+      {operationRows.length > 0 && module === "insights" && <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{operationRows.map((row,i)=><article key={String(row.metric ?? row.date ?? i)} className="rounded-xl border border-[#e7dfd0] bg-[#fbf8f2] p-4"><p className="text-xs uppercase tracking-wide text-[#79633b]">{String(row.metric ?? row.date ?? "Metric")}</p><p className="mt-2 break-words text-xl font-semibold text-[#29251f]">{String(row.value ?? row.sessions ?? row.visitors ?? JSON.stringify(row))}</p>{row.date && <p className="mt-1 text-xs text-gray-500">{String(row.date)}</p>}</article>)}</div>}
+      <p className="mt-4 text-xs leading-5 text-gray-500">These are read-only reports. Shopify remains authoritative; no orders, customers or analytics are stored as invented demo records.</p>
+    </section>}
+    {module !== "products" && module !== "orders" && module !== "customers" && module !== "insights" && <section className="grid gap-4 md:grid-cols-2">
       {(module === "integrations" ? liveLabels.map((item) => ({ title: item.title, key: item.key })) : data.items.map((item) => ({ title: item, key: item }))).map((item, index) => {
         const verified = item.key === "admin" ? status === "online" : item.key === "oauth" ? Boolean(shopify?.storedConnection) : item.key === "token" ? Boolean(shopify?.storedConnection) : item.key === "scopes" ? Boolean(shopify?.productRead) : false;
         const label = item.key === "admin" ? (status === "online" ? "Verified · API online" : status === "error" ? "Check failed" : "Checking") : item.key === "oauth" ? (shopify?.storedConnection ? "Connected in database" : "Not connected") : item.key === "token" ? (shopify?.storedConnection ? "Credential record found" : "Not verified") : item.key === "scopes" ? (shopify?.productRead ? "Product API read verified" : shopify?.connected ? "Connection verified; product read pending" : "Pending Shopify verification") : "Workspace capability";
