@@ -27,7 +27,7 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [productsLoading, setProductsLoading] = useState(false);
   const [productsError, setProductsError] = useState("");
-  const [productCount, setProductCount] = useState<number | null>(null);
+  const [productCount, setProductCount] = useState<number | null>(null);\n  const [editingProductId, setEditingProductId] = useState<string | null>(null);\n  const [editTitle, setEditTitle] = useState("");\n  const [editStatus, setEditStatus] = useState("ACTIVE");\n  const [editPrices, setEditPrices] = useState<Record<string, string>>({});\n  const [savingProductId, setSavingProductId] = useState<string | null>(null);\n  const [saveError, setSaveError] = useState("");\n  const [saveMessage, setSaveMessage] = useState("");
   const data = copy[module];
   async function checkStatus() {
     setStatus("checking"); setDetail("Checking the admin API…");
@@ -55,7 +55,30 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
       setProductsError(error instanceof Error ? error.message : "Could not load products.");
     } finally { setProductsLoading(false); }
   }
-  useEffect(() => { if (module === "integrations" || module === "settings") void checkStatus(); if (module === "products") void loadProducts(); }, [module]);
+
+  function startEditing(product: Product) {
+    setEditingProductId(product.id); setEditTitle(product.title); setEditStatus(product.status.toUpperCase());
+    setEditPrices(Object.fromEntries(product.variants.map(v => [v.id, v.price])));
+    setSaveError(""); setSaveMessage("");
+  }
+  async function saveProduct(product: Product) {
+    setSavingProductId(product.id); setSaveError(""); setSaveMessage("");
+    try {
+      const token = sessionStorage.getItem("tial_access_token");
+      const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      if (!token || !key) throw new Error("Sign in again before saving product changes.");
+      const changedVariants = product.variants.filter(v => editPrices[v.id] !== v.price).map(v => ({ id: `gid://shopify/ProductVariant/${v.id}`, price: editPrices[v.id] }));
+      const response = await fetch("https://fjzpknwcdecoxdvzrljy.supabase.co/functions/v1/tial-admin-product-update", {
+        method: "PATCH", headers: { apikey: key, Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ productId: `gid://shopify/Product/${product.id}`, ...(editTitle.trim() !== product.title ? { title: editTitle.trim() } : {}), ...(editStatus !== product.status.toUpperCase() ? { status: editStatus } : {}), variants: changedVariants })
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || `Save failed (HTTP ${response.status}).`);
+      setSaveMessage("Saved to Shopify successfully."); setEditingProductId(null); await loadProducts();
+    } catch (error) { setSaveError(error instanceof Error ? error.message : "Could not save changes."); }
+    finally { setSavingProductId(null); }
+  }
+\n  useEffect(() => { if (module === "integrations" || module === "settings") void checkStatus(); if (module === "products") void loadProducts(); }, [module]);
   return <main className="space-y-6">
     <header className="rounded-2xl border border-[#e7dfd0] bg-[#fbf8f2] p-6 sm:p-8">
       <p className="text-xs font-semibold tracking-[0.24em] text-[#9a8151]">{data.eyebrow}</p>
@@ -91,9 +114,17 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
       {!productsLoading && !productsError && products.length === 0 && productCount === 0 && <p className="py-8 text-center text-sm text-gray-500">Shopify returned no products for this store.</p>}
       {products.length > 0 && <div className="mt-4 space-y-3">{products.map((product) => <article key={product.id} className="flex gap-3 rounded-xl border border-gray-100 p-3 dark:border-gray-800">
         {product.image ? <img src={product.image} alt="" loading="lazy" className="h-20 w-20 rounded-lg border border-gray-100 object-cover dark:border-gray-800" /> : <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-xs text-gray-500 dark:bg-gray-800">No image</div>}
-        <div className="min-w-0 flex-1"><h3 className="font-semibold text-gray-900 dark:text-white">{product.title}</h3><p className="mt-1 break-all text-xs text-gray-500">{product.handle}</p><div className="mt-2 flex flex-wrap gap-2 text-xs"><span className="rounded-full bg-gray-100 px-2 py-1 text-gray-700 dark:bg-gray-800 dark:text-gray-300">{product.status}</span><span className="rounded-full bg-gray-100 px-2 py-1 text-gray-700 dark:bg-gray-800 dark:text-gray-300">{product.variantCount} variants</span></div>{product.variants?.[0] && <p className="mt-2 text-sm text-gray-700 dark:text-gray-300">From ₹{product.variants[0].price} · {product.variants[0].title}</p>}</div>
+        <div className="min-w-0 flex-1"><h3 className="font-semibold text-gray-900 dark:text-white">{product.title}</h3><p className="mt-1 break-all text-xs text-gray-500">{product.handle}</p><div className="mt-2 flex flex-wrap gap-2 text-xs"><span className="rounded-full bg-gray-100 px-2 py-1 text-gray-700 dark:bg-gray-800 dark:text-gray-300">{product.status}</span><span className="rounded-full bg-gray-100 px-2 py-1 text-gray-700 dark:bg-gray-800 dark:text-gray-300">{product.variantCount} variants</span></div>{product.variants?.[0] && <p className="mt-2 text-sm text-gray-700 dark:text-gray-300">From ₹{product.variants[0].price} · {product.variants[0].title}</p>}
+        <div className="mt-3"><button onClick={() => editingProductId === product.id ? setEditingProductId(null) : startEditing(product)} className="rounded-lg bg-[#29251f] px-4 py-2 text-sm font-medium text-white">{editingProductId === product.id ? "Cancel edit" : "Edit product"}</button></div>
+        {editingProductId === product.id && <div className="mt-4 space-y-3 rounded-xl border border-[#d8c9aa] bg-[#fbf8f2] p-3">
+          <div><label className="text-xs font-semibold text-[#71695d]">Product title</label><input value={editTitle} onChange={e=>setEditTitle(e.target.value)} maxLength={255} className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"/></div>
+          <div><label className="text-xs font-semibold text-[#71695d]">Status</label><select value={editStatus} onChange={e=>setEditStatus(e.target.value)} className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"><option value="ACTIVE">Active (visible on sales channels if published)</option><option value="DRAFT">Draft</option><option value="ARCHIVED">Archived</option></select></div>
+          {product.variants.map(v=><div key={v.id}><label className="text-xs font-semibold text-[#71695d]">Price · {v.title}</label><input type="number" min="0" max="10000000" step="0.01" value={editPrices[v.id] ?? v.price} onChange={e=>setEditPrices(old=>({...old,[v.id]:e.target.value}))} className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"/></div>)}
+          {saveError && <p role="alert" className="rounded-lg bg-red-50 p-2 text-sm text-red-800">{saveError}</p>}
+          <button disabled={savingProductId === product.id || !editTitle.trim()} onClick={() => void saveProduct(product)} className="rounded-lg bg-[#29251f] px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{savingProductId === product.id ? "Saving to Shopify…" : "Save changes to Shopify"}</button>
+        </div>}</div>
       </article>)}</div>}
-      <p className="mt-4 rounded-lg bg-amber-50 p-3 text-xs leading-5 text-amber-900">Read-only preview. Product edits, price changes, inventory updates and publishing are intentionally disabled until separate write workflows are tested.</p>
+      <p className="mt-4 rounded-lg bg-amber-50 p-3 text-xs leading-5 text-amber-900">Edits to title, status and variant prices save directly to the live Shopify store. Verify every change before saving; changes may affect what customers see and pay.</p>{saveMessage && <p className="mt-3 rounded-lg bg-green-50 p-3 text-sm text-green-800">{saveMessage}</p>}
     </section>}
     {module !== "products" && <section className="grid gap-4 md:grid-cols-2">
       {(module === "integrations" ? liveLabels.map((item) => ({ title: item.title, key: item.key })) : data.items.map((item) => ({ title: item, key: item }))).map((item, index) => {
