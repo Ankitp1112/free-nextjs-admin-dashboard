@@ -38,6 +38,9 @@ type NavItem = {
 const navItems: NavItem[] = [
   { icon: <GridIcon />, key: "dashboard", path: "/" },
   { icon: <BoxCubeIcon />, key: "products", path: "/products" },
+  { icon: <ListIcon />, key: "orders", path: "/orders", label: "Orders" },
+  { icon: <UserCircleIcon />, key: "customers", path: "/customers", label: "Customers" },
+  { icon: <PieChartIcon />, key: "insights", path: "/insights", label: "Store Insights" },
   { icon: <PageIcon />, key: "content", path: "/content" },
   { icon: <PlugInIcon />, key: "media", path: "/media" },
   { icon: <UserCircleIcon />, key: "team", path: "/team" },
@@ -82,7 +85,7 @@ const AppSidebar: React.FC = () => {
                 {nav.icon}
               </span>
               {(isExpanded || isHovered || isMobileOpen) && (
-                <span className="menu-item-text">{t(`items.${nav.key}`)}</span>
+                <span className="menu-item-text">{nav.label ?? t(`items.${nav.key}`)}</span>
               )}
               {nav.new && (isExpanded || isHovered || isMobileOpen) && (
                 <span
