@@ -148,7 +148,7 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
         body: JSON.stringify({ productId: `gid://shopify/Product/${product.id}`, ...(editTitle.trim() !== product.title ? { title: editTitle.trim() } : {}), ...(editStatus !== product.status.toUpperCase() ? { status: editStatus } : {}), variants: changedVariants })
       });
       const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error || `Save failed (HTTP ${response.status}).`);
+      if (!response.ok) throw new Error(`${payload.partialUpdate ? "PARTIAL UPDATE: Shopify saved the product fields but rejected one or more variant changes. Refresh the catalogue and verify the product before retrying. " : ""}${payload.error || `Save failed (HTTP ${response.status}).`}`);
       setSaveMessage("Saved to Shopify successfully."); setEditingProductId(null); await loadProducts();
     } catch (error) { setSaveError(error instanceof Error ? error.message : "Could not save changes."); }
     finally { setSavingProductId(null); }
@@ -190,7 +190,7 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
     </section>}
     {module === "products" && <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 dark:border-gray-800 dark:bg-gray-900">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div><h2 className="text-lg font-semibold text-gray-900 dark:text-white">Live Shopify products</h2><p className="mt-1 text-sm text-gray-500">{productCount === null ? "Loading your store catalogue…" : `${productCount} products returned from Shopify · read-only mode`}</p></div>
+        <div><h2 className="text-lg font-semibold text-gray-900 dark:text-white">Live Shopify products</h2><p className="mt-1 text-sm text-gray-500">{productCount === null ? "Loading your store catalogue…" : `${productCount} products returned from Shopify · live editing enabled`}</p></div>
         <button onClick={() => void loadProducts()} disabled={productsLoading} className="rounded-lg border border-[#cbb78e] px-4 py-2 text-sm font-medium text-[#79633b] disabled:opacity-60">{productsLoading ? "Refreshing…" : "Refresh products"}</button>
       </div>
       {productsError && <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{productsError}<p className="mt-1">If this mentions a missing scope, reconnect Shopify after confirming the app has read_products access.</p></div>}
