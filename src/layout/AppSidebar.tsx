@@ -37,71 +37,16 @@ type NavItem = {
 };
 
 const navItems: NavItem[] = [
-  {
-    icon: <GridIcon />,
-    key: "dashboard",
-    subItems: [{ key: "ecommerceHome", path: "/" }],
-  },
-  {
-    icon: <CalenderIcon />,
-    key: "calendar",
-    path: "/calendar",
-  },
-  {
-    icon: <UserCircleIcon />,
-    key: "userProfile",
-    path: "/profile",
-  },
-  {
-    key: "forms",
-    icon: <ListIcon />,
-    subItems: [{ key: "formElements", path: "/form-elements", pro: false }],
-  },
-  {
-    key: "tables",
-    icon: <TableIcon />,
-    subItems: [{ key: "basicTables", path: "/basic-tables", pro: false }],
-  },
-  {
-    key: "pages",
-    icon: <PageIcon />,
-    subItems: [
-      { key: "blankPage", path: "/blank" },
-      { key: "error404", path: "/error-404" },
-    ],
-  },
+  { icon: <GridIcon />, key: "dashboard", path: "/" },
+  { icon: <BoxCubeIcon />, key: "products", path: "/products" },
+  { icon: <PageIcon />, key: "content", path: "/content" },
+  { icon: <PlugInIcon />, key: "media", path: "/media" },
+  { icon: <UserCircleIcon />, key: "team", path: "/team" },
+  { icon: <TableIcon />, key: "integrations", path: "/integrations" },
+  { icon: <ListIcon />, key: "settings", path: "/settings" },
 ];
 
-const othersItems: NavItem[] = [
-  {
-    icon: <PieChartIcon />,
-    key: "charts",
-    subItems: [
-      { key: "lineChart", path: "/line-chart", pro: false },
-      { key: "barChart", path: "/bar-chart", pro: false },
-    ],
-  },
-  {
-    icon: <BoxCubeIcon />,
-    key: "uiElements",
-    subItems: [
-      { key: "alerts", path: "/alerts" },
-      { key: "avatar", path: "/avatars" },
-      { key: "badge", path: "/badge" },
-      { key: "buttons", path: "/buttons" },
-      { key: "images", path: "/images" },
-      { key: "videos", path: "/videos" },
-    ],
-  },
-  {
-    icon: <PlugInIcon />,
-    key: "authentication",
-    subItems: [
-      { key: "signIn", path: "/signin", pro: false },
-      { key: "signUp", path: "/signup", pro: false },
-    ],
-  },
-];
+const othersItems: NavItem[] = [];
 
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
