@@ -1,3 +1,32 @@
+# TIAL Admin Studio setup
+
+This repository is customized for the TIAL Admin Studio. The published Shopify Horizon theme is separate and is not modified by this dashboard.
+
+## Required Vercel environment variables
+
+Set these in the Vercel project that deploys this repository (Production and Preview as needed), then redeploy:
+
+- `NEXT_PUBLIC_SUPABASE_URL` = `https://fjzpknwcdecoxdvzrljy.supabase.co`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` = the Supabase project's **publishable key** (or legacy anon key). This is a browser-safe public key, not a service-role key.
+
+Never put `SUPABASE_SERVICE_ROLE_KEY`, `SHOPIFY_CLIENT_SECRET`, or Shopify access tokens in any `NEXT_PUBLIC_*` variable or frontend code.
+
+## Admin sign-in and Shopify OAuth
+
+1. Create/confirm the owner's user in Supabase Auth and ensure that exact user ID has an active `owner` row in `public.admin_members`.
+2. In Supabase Auth URL configuration, add the deployed dashboard origin to the allowed redirect/site URLs.
+3. In the Shopify app settings, set the redirect URL exactly to `https://fjzpknwcdecoxdvzrljy.supabase.co/functions/v1/tial-shopify-oauth-callback` and ensure the requested scopes match the app.
+4. Keep `SHOPIFY_CLIENT_ID`, `SHOPIFY_CLIENT_SECRET`, `SHOPIFY_REDIRECT_URI`, `SHOPIFY_STORE_DOMAIN`, and the service-role key only in secure Supabase Edge Function secrets. Set `TIAL_ADMIN_ORIGIN` to the exact deployed dashboard origin if the browser blocks OAuth start due to CORS.
+5. Sign in at `/signin`, open Integrations, and use **Connect Shopify securely**. Confirm Shopify authorization succeeds and that the connection record reports connected before using live data.
+
+The dashboard deliberately does not fake catalog records. Product writes and storefront publishing must remain disabled until OAuth and role checks are verified. The content studio can only access records allowed by Supabase RLS.
+
+## Build and deployment
+
+Vercel should build the `main` branch with `npm ci` and `npm run build`. Verify the latest deployment is Ready before using it. No GitHub Actions workflow is configured in this repository, so the absence of Actions runs is not a build result.
+
+---
+
 # TailAdmin Next.js - Free Next.js Tailwind Admin Dashboard Template
 
 TailAdmin is a free and open-source admin dashboard template built on **Next.js and Tailwind CSS** providing developers with everything they need to create a feature-rich and data-driven: back-end, dashboard, or admin panel solution for any sort of web project.
