@@ -11,16 +11,16 @@
   },
   "sidebar": {
     "groups": {
-      "menu": "Menu",
+      "menu": "TIAL WORKSPACE",
       "support": "Support",
-      "others": "Others"
+      "others": "ADMINISTRATION"
     },
     "badges": {
       "new": "new",
       "pro": "pro"
     },
     "items": {
-      "dashboard": "Dashboard",
+      "dashboard": "Overview",
       "ecommerceHome": "Ecommerce",
       "analytics": "Analytics",
       "marketing": "Marketing",
@@ -62,7 +62,7 @@
       "pricingTables": "Pricing Tables",
       "faq": "FAQ",
       "apiKeys": "API Keys",
-      "integrations": "Integrations",
+      "integrations": "Shopify Connection",
       "blankPage": "Blank Page",
       "error404": "404 Error",
       "error500": "500 Error",
@@ -120,7 +120,11 @@
       "supportReply": "Support Reply",
       "email": "Email",
       "inbox": "Inbox",
-      "inboxDetails": "Details"
+      "inboxDetails": "Details",
+      "content": "Content Studio",
+      "media": "Homepage Media",
+      "team": "Team & Access",
+      "settings": "Settings"
     },
     "widget": {
       "title": "#1 Tailwind CSS Dashboard",
@@ -862,5 +866,3 @@
     }
   }
 }
-
-
