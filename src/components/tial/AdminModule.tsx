@@ -23,9 +23,6 @@ const copy: Record<ModuleKey, { eyebrow: string; title: string; description: str
 export default function AdminModule({ module }: { module: ModuleKey }) {
   const [status, setStatus] = useState<ApiStatus>("checking");
   const [detail, setDetail] = useState("Check the admin API to confirm service availability.");
-  const [draftTitle, setDraftTitle] = useState("");
-  const [draftBody, setDraftBody] = useState("");
-  const [preview, setPreview] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState("");
   const [shopify, setShopify] = useState<LiveShopify | null>(null);
@@ -254,15 +251,6 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
       </div>
       {connectError && <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">{connectError}</p>}
     </section>}
-    {module === "content" && <section className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-      <h2 className="font-serif text-xl text-gray-900 dark:text-white">Editorial draft pad</h2><p className="mt-1 text-sm text-gray-500">Create a local preview. Database save and publishing are not enabled yet.</p>
-      <form className="mt-4 space-y-4" onSubmit={e=>{e.preventDefault();setPreview(true)}}>
-        <div><label htmlFor="draft-title" className="text-sm font-medium">Draft title</label><input id="draft-title" required maxLength={180} value={draftTitle} onChange={e=>{setDraftTitle(e.target.value);setPreview(false)}} className="mt-2 w-full rounded-xl border border-gray-200 bg-transparent px-3 py-3 text-sm" placeholder="e.g. The TIAL woman"/></div>
-        <div><label htmlFor="draft-copy" className="text-sm font-medium">Copy / notes</label><textarea id="draft-copy" rows={5} value={draftBody} onChange={e=>{setDraftBody(e.target.value);setPreview(false)}} className="mt-2 w-full rounded-xl border border-gray-200 bg-transparent px-3 py-3 text-sm" placeholder="Write a draft for review…"/></div>
-        <button className="rounded-xl bg-[#29251f] px-5 py-3 text-sm font-medium text-white hover:bg-[#514637]" type="submit">Preview draft</button>
-      </form>
-      {preview && <div className="mt-4 rounded-xl border border-[#d8c9aa] bg-[#fbf8f2] p-4"><p className="text-xs font-semibold tracking-widest text-[#9a8151]">LOCAL PREVIEW · NOT SAVED</p><h3 className="mt-2 font-serif text-xl text-[#29251f]">{draftTitle}</h3><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[#71695d]">{draftBody || "No body text added yet."}</p></div>}
-    </section>}
     {module === "products" && <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 dark:border-gray-800 dark:bg-gray-900">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div><h2 className="text-lg font-semibold text-gray-900 dark:text-white">Live Shopify products</h2><p className="mt-1 text-sm text-gray-500">{productCount === null ? "Loading your store catalogue…" : `${productCount} products returned from Shopify · live editing enabled`}</p></div>
@@ -311,7 +299,7 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
       {operationRows.length > 0 && module === "insights" && <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{operationRows.map((row,i)=><article key={String(row.metric ?? row.date ?? i)} className="rounded-xl border border-[#e7dfd0] bg-[#fbf8f2] p-4"><p className="text-xs uppercase tracking-wide text-[#79633b]">{String(row.metric ?? row.date ?? "Metric")}</p><p className="mt-2 break-words text-xl font-semibold text-[#29251f]">{String(row.value ?? row.sessions ?? row.visitors ?? JSON.stringify(row))}</p>{row.date && <p className="mt-1 text-xs text-gray-500">{String(row.date)}</p>}</article>)}</div>}
       <p className="mt-4 text-xs leading-5 text-gray-500">These are read-only reports. Shopify remains authoritative; no orders, customers or analytics are stored as invented demo records.</p>
     </section>}
-    {module === "content" && <ContentStudio />}
+    {(module === "content" || module === "media") && <ContentStudio /> }
     {module === "team" && <TeamAccess />}
     {module === "settings" && <AuditLog />}
     {module !== "products" && module !== "inventory" && module !== "orders" && module !== "customers" && module !== "insights" && module !== "content" && module !== "team" && <section className="grid gap-4 md:grid-cols-2">
@@ -322,6 +310,6 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
       })}
     </section>}
     {module === "integrations" && shopify?.shopDomain && <p className="rounded-xl border border-gray-200 bg-white p-4 text-sm leading-6 text-gray-700">Store: <strong>{shopify.storeName ?? shopify.shopDomain}</strong>{shopify.scopes?.length ? ` · Granted scopes: ${shopify.scopes.join(", ")}` : ""}</p>}
-    {module !== "products" && <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">{shopify?.productRead ? "Shopify product read access is verified. Product image management and collection creation can change the live store. Content publishing and direct theme editing are not available in this workspace yet." : "Shopify product access is not fully verified. No sample records are presented as live store data; confirm the connection before making live changes."}</p>}
+    {module === "media" && <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">Homepage image drafts are saved for review here. To attach or remove images on actual Shopify products, use Products → Product media. No theme files or published homepage sections are changed from this screen.</p>}
   </main>;
 }
