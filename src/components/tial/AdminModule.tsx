@@ -24,7 +24,10 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
   async function checkStatus() {
     setStatus("checking"); setDetail("Checking the admin API…");
     try {
-      const response = await fetch("https://fjzpknwcdecoxdvzrljy.supabase.co/functions/v1/tial-admin-status", { cache: "no-store" });
+      const token = sessionStorage.getItem("tial_access_token");
+      const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      if (!token || !key) throw new Error("Sign in again to check the admin API.");
+      const response = await fetch("https://fjzpknwcdecoxdvzrljy.supabase.co/functions/v1/tial-admin-status", { cache: "no-store", headers: { apikey: key, Authorization: `Bearer ${token}` } });
       if (!response.ok) throw new Error(`API returned HTTP ${response.status}`);
       const payload = await response.json();
       setStatus("online"); setDetail(`API responded successfully${payload.version ? ` · version ${payload.version}` : ""}. Shopify authorization is a separate check.`);
