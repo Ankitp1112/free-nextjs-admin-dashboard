@@ -51,6 +51,10 @@ export default function GoogleSignInCallback() {
         sessionStorage.setItem("tial_access_token", accessToken);
         if (refreshToken) sessionStorage.setItem("tial_refresh_token", refreshToken);
         sessionStorage.setItem("tial_admin_role", members[0].role);
+        const metadata = user.user_metadata || {};
+        const displayName = metadata.full_name || metadata.name || user.email?.split("@")[0] || "TIAL Admin";
+        sessionStorage.setItem("tial_admin_name", displayName);
+        sessionStorage.setItem("tial_admin_email", user.email || "");
         window.history.replaceState(null, "", window.location.pathname);
         window.location.replace("/");
       } catch (error) {
