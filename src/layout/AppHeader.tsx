@@ -90,21 +90,9 @@ const AppHeader: React.FC = () => {
             {/* Cross Icon */}
           </button>
 
-          <Link href="/" className="xl:hidden">
-            <Image
-              width={154}
-              height={32}
-              className="dark:hidden"
-              src="/images/logo/logo.svg"
-              alt="Logo"
-            />
-            <Image
-              width={154}
-              height={32}
-              className="hidden dark:block"
-              src="/images/logo/logo-dark.svg"
-              alt="Logo"
-            />
+          <Link href="/" className="flex items-center gap-2 xl:hidden" aria-label="TIAL Admin home">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[#b99b62] bg-[#f8f5ef] font-serif text-lg font-semibold text-[#29251f]">T</span>
+            <span className="font-serif text-lg font-semibold tracking-[0.2em] text-[#29251f] dark:text-[#f4eee3]">TIAL</span>
           </Link>
 
           <button
