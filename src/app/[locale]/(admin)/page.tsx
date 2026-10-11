@@ -15,7 +15,10 @@ const modules = [
 export default function TialOverview() {
   const [api, setApi] = useState<"checking" | "online" | "error">("checking");
   useEffect(() => {
-    fetch("https://fjzpknwcdecoxdvzrljy.supabase.co/functions/v1/tial-admin-status", { cache: "no-store" })
+    const token = sessionStorage.getItem("tial_access_token");
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!token || !key) { setApi("error"); return; }
+    fetch("https://fjzpknwcdecoxdvzrljy.supabase.co/functions/v1/tial-admin-status", { cache: "no-store", headers: { apikey: key, Authorization: `Bearer ${token}` } })
       .then((response) => { if (!response.ok) throw new Error("API unavailable"); return response.json(); })
       .then(() => setApi("online"))
       .catch(() => setApi("error"));
