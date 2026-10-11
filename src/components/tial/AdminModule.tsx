@@ -163,14 +163,15 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
         <span className="inline-flex w-fit items-center rounded-full border border-[#d8c9aa] bg-white px-3 py-1.5 text-xs font-medium text-[#79633b]">TIAL Admin Studio</span>
       </div>
     </header>
-    {(module === "integrations" || module === "settings") && <section className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-            <form onSubmit={createCollection} className="mb-5 rounded-xl border border-[#d8c9aa] bg-[#fbf8f2] p-4">
+    {module === "products" && <section className="rounded-2xl border border-[#e7dfd0] bg-white p-5"><form onSubmit={createCollection} className="mb-5 rounded-xl border border-[#d8c9aa] bg-[#fbf8f2] p-4">
         <h2 className="text-lg font-semibold text-[#29251f]">Create a new collection</h2><p className="mt-1 text-sm text-[#71695d]">Creates a collection in the live Shopify store.</p>
         <label className="mt-3 block text-xs font-semibold text-[#71695d]">Collection name</label><input required maxLength={255} value={collectionTitle} onChange={e=>setCollectionTitle(e.target.value)} placeholder="e.g. Everyday Kurtis" className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"/>
         <label className="mt-3 block text-xs font-semibold text-[#71695d]">Description (optional)</label><textarea value={collectionDescription} onChange={e=>setCollectionDescription(e.target.value)} rows={2} placeholder="Describe this collection…" className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"/>
         {collectionError && <p role="alert" className="mt-3 rounded-lg bg-red-50 p-2 text-sm text-red-800">{collectionError}</p>}{collectionMessage && <p className="mt-3 rounded-lg bg-green-50 p-2 text-sm text-green-800">{collectionMessage}</p>}
         <button type="submit" disabled={collectionSaving || !collectionTitle.trim()} className="mt-3 rounded-lg bg-[#29251f] px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{collectionSaving ? "Creating collection…" : "Create collection in Shopify"}</button>
-      </form>
+      </form></section>}
+    {(module === "integrations" || module === "settings") && <section className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+
 <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold text-gray-900 dark:text-white">Admin API health</h2><p className="mt-1 text-sm text-gray-500">{detail}</p></div><span className={`rounded-full px-3 py-1 text-xs font-semibold ${status === "online" ? "bg-green-50 text-green-700" : status === "error" ? "bg-red-50 text-red-700" : "bg-gray-100 text-gray-600"}`}>{status === "online" ? "API online" : status === "error" ? "Check failed" : "Checking…"}</span></div>
       <div className="mt-4 flex flex-wrap gap-3">
         <button onClick={() => void checkStatus()} className="rounded-lg border border-[#cbb78e] px-4 py-2 text-sm font-medium text-[#79633b] hover:bg-[#fbf8f2]">Refresh status</button>
@@ -233,6 +234,6 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
       })}
     </section>}
     {module === "integrations" && shopify?.shopDomain && <p className="rounded-xl border border-gray-200 bg-white p-4 text-sm leading-6 text-gray-700">Store: <strong>{shopify.storeName ?? shopify.shopDomain}</strong>{shopify.scopes?.length ? ` · Granted scopes: ${shopify.scopes.join(", ")}` : ""}</p>}
-    {module !== "products" && <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">{shopify?.productRead ? "Shopify product read access is verified. Product writes, media replacement and content publishing remain disabled until their individual workflows and permissions are implemented and tested." : "Live product writes, media replacement and content publishing remain disabled until the relevant API access and workflows are verified. No sample records are presented as live store data."}</p>}
+    {module !== "products" && <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">{shopify?.productRead ? "Shopify product read access is verified. Product image management and collection creation can change the live store. Content publishing and direct theme editing are not available in this workspace yet." : "Shopify product access is not fully verified. No sample records are presented as live store data; confirm the connection before making live changes."}</p>}
   </main>;
 }
