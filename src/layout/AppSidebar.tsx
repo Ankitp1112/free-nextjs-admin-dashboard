@@ -22,6 +22,7 @@ import {
 
 type NavItem = {
   key: string;
+  label?: string;
   icon: React.ReactNode;
   path?: string;
   new?: boolean;
