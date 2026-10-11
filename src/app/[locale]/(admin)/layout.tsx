@@ -26,9 +26,13 @@ function AdminSessionGate({ children }: { children: React.ReactNode }) {
         const members=await memberRes.json();
         if(!memberRes.ok || !members?.[0]?.is_active || !["owner","admin","editor","viewer"].includes(members?.[0]?.role)) throw new Error("No active membership");
         sessionStorage.setItem("tial_admin_role",members[0].role);
+        const metadata = user.user_metadata || {};
+        const displayName = metadata.full_name || metadata.name || user.email?.split("@")[0] || "TIAL Admin";
+        sessionStorage.setItem("tial_admin_name", displayName);
+        sessionStorage.setItem("tial_admin_email", user.email || "");
         if(active) setState("allowed");
       } catch {
-        sessionStorage.removeItem("tial_access_token"); sessionStorage.removeItem("tial_refresh_token"); sessionStorage.removeItem("tial_admin_role");
+        sessionStorage.removeItem("tial_access_token"); sessionStorage.removeItem("tial_refresh_token"); sessionStorage.removeItem("tial_admin_role"); sessionStorage.removeItem("tial_admin_name"); sessionStorage.removeItem("tial_admin_email");
         if(active) setState("blocked");
         window.location.replace("/signin");
       }
