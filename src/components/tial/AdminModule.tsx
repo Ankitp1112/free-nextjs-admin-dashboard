@@ -38,6 +38,11 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
   const [imageUrls, setImageUrls] = useState<Record<string,string>>({});
   const [imageAlts, setImageAlts] = useState<Record<string,string>>({});
   const [imageSavingId, setImageSavingId] = useState<string | null>(null);
+  const [productImages, setProductImages] = useState<Record<string,{id:string;url:string;alt:string;width?:number;height?:number}[]>>({});
+  const [imagesLoadingId, setImagesLoadingId] = useState<string | null>(null);
+  const [imagesOpenId, setImagesOpenId] = useState<string | null>(null);
+  const [imageFileData, setImageFileData] = useState<Record<string,{filename:string;mimeType:string;base64:string}>>({});
+  const [imageAltEdits, setImageAltEdits] = useState<Record<string,string>>({});
   const [collectionTitle, setCollectionTitle] = useState("");
   const [collectionDescription, setCollectionDescription] = useState("");
   const [collectionSaving, setCollectionSaving] = useState(false);
@@ -79,6 +84,27 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
     const payload = await response.json();
     if (!response.ok) throw new Error(payload.error || `Request failed (HTTP ${response.status}).`);
     return payload;
+  }
+  async function loadProductImages(product: Product) {
+    setImagesLoadingId(product.id); setSaveError("");
+    try { const payload = await mediaAction({ action: "list-images", productId: `gid://shopify/Product/${product.id}` }); setProductImages(old=>({...old,[product.id]:payload.images??[]})); setImagesOpenId(product.id); }
+    catch(e) { setSaveError(e instanceof Error ? e.message : "Could not load product images."); } finally { setImagesLoadingId(null); }
+  }
+  async function uploadProductImage(product: Product) {
+    const file = imageFileData[product.id]; if (!file) { setSaveError("Choose an image file first."); return; }
+    setImageSavingId(product.id); setSaveError(""); setSaveMessage("");
+    try { await mediaAction({ action: "upload-image", productId: `gid://shopify/Product/${product.id}`, ...file, alt: imageAlts[product.id] ?? product.title }); setSaveMessage(`Image uploaded to ${product.title}.`); setImageFileData(old=>({...old,[product.id]:{...old[product.id],base64:""}})); await loadProductImages(product); await loadProducts(); }
+    catch(e) { setSaveError(e instanceof Error ? e.message : "Could not upload image."); } finally { setImageSavingId(null); }
+  }
+  async function removeProductImage(product: Product, mediaId: string) {
+    if (!window.confirm("Remove this image from the live Shopify product? This cannot be undone here.")) return;
+    setImageSavingId(product.id); setSaveError(""); setSaveMessage("");
+    try { await mediaAction({ action: "delete-image", productId: `gid://shopify/Product/${product.id}`, mediaId }); setSaveMessage("Image removed from Shopify."); await loadProductImages(product); await loadProducts(); }
+    catch(e) { setSaveError(e instanceof Error ? e.message : "Could not remove image."); } finally { setImageSavingId(null); }
+  }
+  async function saveImageAlt(product: Product, mediaId: string) {
+    try { await mediaAction({ action: "update-image-alt", productId: `gid://shopify/Product/${product.id}`, mediaId, alt: imageAltEdits[mediaId] ?? "" }); setSaveMessage("Image alt text updated."); await loadProductImages(product); }
+    catch(e) { setSaveError(e instanceof Error ? e.message : "Could not update image."); }
   }
   async function addProductImage(product: Product) {
     setImageSavingId(product.id); setSaveError(""); setSaveMessage("");
@@ -164,7 +190,21 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
       {products.length > 0 && <div className="mt-4 space-y-3">{products.map((product) => <article key={product.id} className="flex gap-3 rounded-xl border border-gray-100 p-3 dark:border-gray-800">
         {product.image ? <img src={product.image} alt="" loading="lazy" className="h-20 w-20 rounded-lg border border-gray-100 object-cover dark:border-gray-800" /> : <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-xs text-gray-500 dark:bg-gray-800">No image</div>}
         <div className="min-w-0 flex-1"><h3 className="font-semibold text-gray-900 dark:text-white">{product.title}</h3><p className="mt-1 break-all text-xs text-gray-500">{product.handle}</p><div className="mt-2 flex flex-wrap gap-2 text-xs"><span className="rounded-full bg-gray-100 px-2 py-1 text-gray-700 dark:bg-gray-800 dark:text-gray-300">{product.status}</span><span className="rounded-full bg-gray-100 px-2 py-1 text-gray-700 dark:bg-gray-800 dark:text-gray-300">{product.variantCount} variants</span></div>{product.variants?.[0] && <p className="mt-2 text-sm text-gray-700 dark:text-gray-300">From ₹{product.variants[0].price} · {product.variants[0].title}</p>}
-        <details className="mt-3 rounded-lg border border-gray-200 p-3"><summary className="cursor-pointer text-sm font-medium text-[#79633b]">Add / edit product images</summary><p className="mt-2 text-xs leading-5 text-gray-500">Enter a publicly accessible HTTPS image URL. This adds an image; it does not delete existing images.</p><label className="mt-2 block text-xs font-semibold text-gray-600">Image URL</label><input type="url" value={imageUrls[product.id] ?? ""} onChange={e=>setImageUrls(old=>({...old,[product.id]:e.target.value}))} placeholder="https://example.com/product-image.jpg" className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"/><label className="mt-2 block text-xs font-semibold text-gray-600">Image alt text</label><input value={imageAlts[product.id] ?? product.title} onChange={e=>setImageAlts(old=>({...old,[product.id]:e.target.value}))} maxLength={512} className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"/><button onClick={()=>void addProductImage(product)} disabled={imageSavingId===product.id || !(imageUrls[product.id]??"").trim()} className="mt-3 rounded-lg border border-[#cbb78e] px-4 py-2 text-sm font-medium text-[#79633b] disabled:opacity-50">{imageSavingId===product.id ? "Adding image…" : "Add image to Shopify"}</button></details><div className="mt-3"><button onClick={() => editingProductId === product.id ? setEditingProductId(null) : startEditing(product)} className="rounded-lg bg-[#29251f] px-4 py-2 text-sm font-medium text-white">{editingProductId === product.id ? "Cancel edit" : "Edit product"}</button></div>
+        <div className="mt-3"><button onClick={()=>imagesOpenId===product.id?setImagesOpenId(null):void loadProductImages(product)} className="rounded-lg border border-[#cbb78e] px-3 py-2 text-sm font-medium text-[#79633b]">{imagesLoadingId===product.id?"Loading images…":imagesOpenId===product.id?"Close image manager":"Manage product images"}</button></div>
+        {imagesOpenId===product.id && <div className="mt-3 space-y-3 rounded-xl border border-[#d8c9aa] bg-[#fbf8f2] p-3">
+          <h4 className="font-semibold text-[#29251f]">Existing Shopify images</h4>
+          {(productImages[product.id]??[]).length===0 && <p className="text-sm text-gray-500">No product images found.</p>}
+          {(productImages[product.id]??[]).map(img=><div key={img.id} className="flex gap-3 rounded-lg border border-gray-200 bg-white p-2">
+            <img src={img.url} alt={img.alt} className="h-20 w-20 shrink-0 rounded-lg object-cover"/>
+            <div className="min-w-0 flex-1"><label className="text-xs font-semibold text-gray-600">Alt text</label><input value={imageAltEdits[img.id]??img.alt} onChange={e=>setImageAltEdits(old=>({...old,[img.id]:e.target.value}))} className="mt-1 w-full rounded-lg border border-gray-300 px-2 py-2 text-sm text-gray-900"/><div className="mt-2 flex flex-wrap gap-2"><button onClick={()=>void saveImageAlt(product,img.id)} className="rounded-lg border px-3 py-1.5 text-xs font-medium">Save alt text</button><button onClick={()=>void removeProductImage(product,img.id)} disabled={imageSavingId===product.id} className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 disabled:opacity-50">Remove image</button></div></div>
+          </div>)}
+          <div className="border-t border-[#d8c9aa] pt-3"><h4 className="font-semibold text-[#29251f]">Upload image from your device</h4><p className="mt-1 text-xs text-gray-500">JPG, PNG, WEBP or GIF · maximum 8 MB. This uploads the file and attaches it to Shopify.</p>
+            <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={async e=>{const file=e.target.files?.[0];if(!file)return;if(file.size>8*1024*1024){setSaveError("Image must be 8 MB or smaller.");return;}const base64=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(",")[1]??"");reader.onerror=()=>reject(new Error("Could not read image file."));reader.readAsDataURL(file);});setImageFileData(old=>({...old,[product.id]:{filename:file.name,mimeType:file.type,base64}}));}} className="mt-2 block w-full text-sm text-gray-700"/>
+            <label className="mt-2 block text-xs font-semibold text-gray-600">Image alt text</label><input value={imageAlts[product.id]??product.title} onChange={e=>setImageAlts(old=>({...old,[product.id]:e.target.value}))} className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"/>
+            <button onClick={()=>void uploadProductImage(product)} disabled={imageSavingId===product.id||!(imageFileData[product.id]?.base64)} className="mt-3 rounded-lg bg-[#29251f] px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{imageSavingId===product.id?"Uploading…":"Upload and attach image"}</button>
+          </div>
+          <div className="border-t border-[#d8c9aa] pt-3"><details><summary className="cursor-pointer text-sm text-[#79633b]">Add image by URL instead</summary><label className="mt-2 block text-xs font-semibold text-gray-600">Public HTTPS image URL</label><input type="url" value={imageUrls[product.id]??""} onChange={e=>setImageUrls(old=>({...old,[product.id]:e.target.value}))} placeholder="https://example.com/image.jpg" className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"/><button onClick={()=>void addProductImage(product)} disabled={imageSavingId===product.id||!(imageUrls[product.id]??"").trim()} className="mt-2 rounded-lg border px-3 py-2 text-sm">Add from URL</button></details></div>
+        </div>}<div className="mt-3"><button onClick={() => editingProductId === product.id ? setEditingProductId(null) : startEditing(product)} className="rounded-lg bg-[#29251f] px-4 py-2 text-sm font-medium text-white">{editingProductId === product.id ? "Cancel edit" : "Edit product"}</button></div>
         {editingProductId === product.id && <div className="mt-4 space-y-3 rounded-xl border border-[#d8c9aa] bg-[#fbf8f2] p-3">
           <div><label className="text-xs font-semibold text-[#71695d]">Product title</label><input value={editTitle} onChange={e=>setEditTitle(e.target.value)} maxLength={255} className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"/></div>
           <div><label className="text-xs font-semibold text-[#71695d]">Status</label><select value={editStatus} onChange={e=>setEditStatus(e.target.value)} className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"><option value="ACTIVE">Active (visible on sales channels if published)</option><option value="DRAFT">Draft</option><option value="ARCHIVED">Archived</option></select></div>
