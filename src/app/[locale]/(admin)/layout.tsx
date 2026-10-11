@@ -15,11 +15,26 @@ function AdminSessionGate({ children }: { children: React.ReactNode }) {
   useEffect(()=>{
     let active=true;
     async function verify() {
-      const token=sessionStorage.getItem("tial_access_token");
+      let token=sessionStorage.getItem("tial_access_token");
+      const refreshToken=sessionStorage.getItem("tial_refresh_token");
       if(!token || !SUPABASE_URL || !SUPABASE_KEY) { window.location.replace("/signin"); return; }
       try {
-        const headers={"apikey":SUPABASE_KEY,"Authorization":`Bearer ${token}`};
-        const userRes=await fetch(`${SUPABASE_URL}/auth/v1/user`,{headers,cache:"no-store"});
+        let headers={"apikey":SUPABASE_KEY,"Authorization":`Bearer ${token}`};
+        let userRes=await fetch(`${SUPABASE_URL}/auth/v1/user`,{headers,cache:"no-store"});
+        if(!userRes.ok && refreshToken) {
+          const refreshRes=await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,{
+            method:"POST",headers:{"apikey":SUPABASE_KEY,"Content-Type":"application/json"},cache:"no-store",
+            body:JSON.stringify({refresh_token:refreshToken})
+          });
+          const refreshed=await refreshRes.json();
+          if(refreshRes.ok && refreshed.access_token && refreshed.refresh_token) {
+            token=refreshed.access_token;
+            sessionStorage.setItem("tial_access_token",refreshed.access_token);
+            sessionStorage.setItem("tial_refresh_token",refreshed.refresh_token);
+            headers={"apikey":SUPABASE_KEY,"Authorization":`Bearer ${token}`};
+            userRes=await fetch(`${SUPABASE_URL}/auth/v1/user`,{headers,cache:"no-store"});
+          }
+        }
         if(!userRes.ok) throw new Error("Session expired");
         const user=await userRes.json();
         const memberRes=await fetch(`${SUPABASE_URL}/rest/v1/admin_members?select=role,is_active&user_id=eq.${encodeURIComponent(user.id)}`,{headers,cache:"no-store"});
@@ -47,5 +62,5 @@ function AdminSessionGate({ children }: { children: React.ReactNode }) {
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
   const mainContentMargin = isMobileOpen ? "ml-0" : isExpanded || isHovered ? "lg:ml-[290px]" : "lg:ml-[90px]";
-  return <AdminSessionGate><div className="min-h-screen xl:flex"><AppSidebar /><Backdrop /><div className={`flex-1 transition-all duration-300 ease-in-out ${mainContentMargin}`}><div className="relative"><AppHeader /><button type="button" onClick={() => { sessionStorage.removeItem("tial_access_token"); sessionStorage.removeItem("tial_refresh_token"); sessionStorage.removeItem("tial_admin_role"); window.location.assign("/signin"); }} className="absolute right-5 top-5 z-40 rounded-lg border border-[#d8c9aa] bg-white px-3 py-2 text-xs font-medium text-[#79633b] hover:bg-[#fbf8f2]">Sign out</button></div><div className="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">{children}</div></div></div></AdminSessionGate>;
+  return <AdminSessionGate><div className="min-h-screen xl:flex"><AppSidebar /><Backdrop /><div className={`flex-1 transition-all duration-300 ease-in-out ${mainContentMargin}`}><div className="relative"><AppHeader /><button type="button" onClick={() => { sessionStorage.removeItem("tial_access_token"); sessionStorage.removeItem("tial_refresh_token"); sessionStorage.removeItem("tial_admin_role"); sessionStorage.removeItem("tial_admin_name"); sessionStorage.removeItem("tial_admin_email"); window.location.assign("/signin"); }} className="absolute right-5 top-5 z-40 rounded-lg border border-[#d8c9aa] bg-white px-3 py-2 text-xs font-medium text-[#79633b] hover:bg-[#fbf8f2]">Sign out</button></div><div className="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">{children}</div></div></div></AdminSessionGate>;
 }
