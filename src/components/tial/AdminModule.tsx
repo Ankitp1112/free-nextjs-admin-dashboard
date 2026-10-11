@@ -86,9 +86,17 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
     return payload;
   }
   async function loadProductImages(product: Product) {
-    setImagesLoadingId(product.id); setSaveError("");
-    try { const payload = await mediaAction({ action: "list-images", productId: `gid://shopify/Product/${product.id}` }); setProductImages(old=>({...old,[product.id]:payload.images??[]})); setImagesOpenId(product.id); }
-    catch(e) { setSaveError(e instanceof Error ? e.message : "Could not load product images."); } finally { setImagesLoadingId(null); }
+    setImagesOpenId(product.id);
+    setImagesLoadingId(product.id);
+    setSaveError("");
+    try {
+      const payload = await mediaAction({ action: "list-images", productId: `gid://shopify/Product/${product.id}` });
+      setProductImages(old=>({...old,[product.id]:payload.images??[]}));
+    } catch(e) {
+      setSaveError(e instanceof Error ? e.message : "Could not load product images.");
+    } finally {
+      setImagesLoadingId(null);
+    }
   }
   async function uploadProductImage(product: Product) {
     const file = imageFileData[product.id]; if (!file) { setSaveError("Choose an image file first."); return; }
@@ -193,7 +201,9 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
         <div className="mt-3"><button onClick={()=>imagesOpenId===product.id?setImagesOpenId(null):void loadProductImages(product)} className="rounded-lg border border-[#cbb78e] px-3 py-2 text-sm font-medium text-[#79633b]">{imagesLoadingId===product.id?"Loading images…":imagesOpenId===product.id?"Close image manager":"Manage product images"}</button></div>
         {imagesOpenId===product.id && <div className="mt-3 space-y-3 rounded-xl border border-[#d8c9aa] bg-[#fbf8f2] p-3">
           <h4 className="font-semibold text-[#29251f]">Existing Shopify images</h4>
-          {(productImages[product.id]??[]).length===0 && <p className="text-sm text-gray-500">No product images found.</p>}
+          {imagesLoadingId===product.id && <p role="status" className="rounded-lg bg-white p-3 text-sm text-gray-600">Connecting to Shopify and loading this product's images…</p>}
+          {saveError && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">{saveError}</p>}
+          {!imagesLoadingId && !saveError && (productImages[product.id]??[]).length===0 && <p className="text-sm text-gray-500">No product images found.</p>}
           {(productImages[product.id]??[]).map(img=><div key={img.id} className="flex gap-3 rounded-lg border border-gray-200 bg-white p-2">
             <img src={img.url} alt={img.alt} className="h-20 w-20 shrink-0 rounded-lg object-cover"/>
             <div className="min-w-0 flex-1"><label className="text-xs font-semibold text-gray-600">Alt text</label><input value={imageAltEdits[img.id]??img.alt} onChange={e=>setImageAltEdits(old=>({...old,[img.id]:e.target.value}))} className="mt-1 w-full rounded-lg border border-gray-300 px-2 py-2 text-sm text-gray-900"/><div className="mt-2 flex flex-wrap gap-2"><button onClick={()=>void saveImageAlt(product,img.id)} className="rounded-lg border px-3 py-1.5 text-xs font-medium">Save alt text</button><button onClick={()=>void removeProductImage(product,img.id)} disabled={imageSavingId===product.id} className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 disabled:opacity-50">Remove image</button></div></div>
