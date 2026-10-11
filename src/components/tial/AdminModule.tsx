@@ -27,7 +27,7 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [productsLoading, setProductsLoading] = useState(false);
   const [productsError, setProductsError] = useState("");
-  const [productCount, setProductCount] = useState<number | null>(null);\n  const [editingProductId, setEditingProductId] = useState<string | null>(null);\n  const [editTitle, setEditTitle] = useState("");\n  const [editStatus, setEditStatus] = useState("ACTIVE");\n  const [editPrices, setEditPrices] = useState<Record<string, string>>({});\n  const [savingProductId, setSavingProductId] = useState<string | null>(null);\n  const [saveError, setSaveError] = useState("");\n  const [saveMessage, setSaveMessage] = useState("");
+  const [productCount, setProductCount] = useState<number | null>(null);\n  const [editingProductId, setEditingProductId] = useState<string | null>(null);\n  const [editTitle, setEditTitle] = useState("");\n  const [editStatus, setEditStatus] = useState("ACTIVE");\n  const [editPrices, setEditPrices] = useState<Record<string, string>>({});\n  const [savingProductId, setSavingProductId] = useState<string | null>(null);\n  const [saveError, setSaveError] = useState("");\n  const [saveMessage, setSaveMessage] = useState("");\n  const [imageUrls, setImageUrls] = useState<Record<string,string>>({});\n  const [imageAlts, setImageAlts] = useState<Record<string,string>>({});\n  const [imageSavingId, setImageSavingId] = useState<string | null>(null);\n  const [collectionTitle, setCollectionTitle] = useState("");\n  const [collectionDescription, setCollectionDescription] = useState("");\n  const [collectionSaving, setCollectionSaving] = useState(false);\n  const [collectionMessage, setCollectionMessage] = useState("");\n  const [collectionError, setCollectionError] = useState("");
   const data = copy[module];
   async function checkStatus() {
     setStatus("checking"); setDetail("Checking the admin API…");
@@ -56,7 +56,32 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
     } finally { setProductsLoading(false); }
   }
 
-  function startEditing(product: Product) {
+
+  async function mediaAction(body: Record<string, string>) {
+    const token = sessionStorage.getItem("tial_access_token"), key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!token || !key) throw new Error("Sign in again before making changes.");
+    const response = await fetch("https://fjzpknwcdecoxdvzrljy.supabase.co/functions/v1/tial-admin-media-collections", { method: "POST", headers: { apikey: key, Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || `Request failed (HTTP ${response.status}).`);
+    return payload;
+  }
+  async function addProductImage(product: Product) {
+    setImageSavingId(product.id); setSaveError(""); setSaveMessage("");
+    try {
+      await mediaAction({ action: "add-image", productId: `gid://shopify/Product/${product.id}`, imageUrl: imageUrls[product.id] ?? "", alt: imageAlts[product.id] ?? product.title });
+      setSaveMessage(`Image submitted for ${product.title}.`); setImageUrls(old => ({...old,[product.id]:""})); await loadProducts();
+    } catch(e) { setSaveError(e instanceof Error ? e.message : "Could not add image."); }
+    finally { setImageSavingId(null); }
+  }
+  async function createCollection(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault(); setCollectionSaving(true); setCollectionError(""); setCollectionMessage("");
+    try {
+      const payload = await mediaAction({ action: "create-collection", title: collectionTitle, description: collectionDescription });
+      setCollectionMessage(`Created “${payload.collection?.title ?? collectionTitle}” in Shopify.`); setCollectionTitle(""); setCollectionDescription("");
+    } catch(e) { setCollectionError(e instanceof Error ? e.message : "Could not create collection."); }
+    finally { setCollectionSaving(false); }
+  }
+\n  function startEditing(product: Product) {
     setEditingProductId(product.id); setEditTitle(product.title); setEditStatus(product.status.toUpperCase());
     setEditPrices(Object.fromEntries(product.variants.map(v => [v.id, v.price])));
     setSaveError(""); setSaveMessage("");
@@ -88,7 +113,14 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
       </div>
     </header>
     {(module === "integrations" || module === "settings") && <section className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-      <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold text-gray-900 dark:text-white">Admin API health</h2><p className="mt-1 text-sm text-gray-500">{detail}</p></div><span className={`rounded-full px-3 py-1 text-xs font-semibold ${status === "online" ? "bg-green-50 text-green-700" : status === "error" ? "bg-red-50 text-red-700" : "bg-gray-100 text-gray-600"}`}>{status === "online" ? "API online" : status === "error" ? "Check failed" : "Checking…"}</span></div>
+            <form onSubmit={createCollection} className="mb-5 rounded-xl border border-[#d8c9aa] bg-[#fbf8f2] p-4">
+        <h2 className="text-lg font-semibold text-[#29251f]">Create a new collection</h2><p className="mt-1 text-sm text-[#71695d]">Creates a collection in the live Shopify store.</p>
+        <label className="mt-3 block text-xs font-semibold text-[#71695d]">Collection name</label><input required maxLength={255} value={collectionTitle} onChange={e=>setCollectionTitle(e.target.value)} placeholder="e.g. Everyday Kurtis" className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"/>
+        <label className="mt-3 block text-xs font-semibold text-[#71695d]">Description (optional)</label><textarea value={collectionDescription} onChange={e=>setCollectionDescription(e.target.value)} rows={2} placeholder="Describe this collection…" className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"/>
+        {collectionError && <p role="alert" className="mt-3 rounded-lg bg-red-50 p-2 text-sm text-red-800">{collectionError}</p>}{collectionMessage && <p className="mt-3 rounded-lg bg-green-50 p-2 text-sm text-green-800">{collectionMessage}</p>}
+        <button type="submit" disabled={collectionSaving || !collectionTitle.trim()} className="mt-3 rounded-lg bg-[#29251f] px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{collectionSaving ? "Creating collection…" : "Create collection in Shopify"}</button>
+      </form>
+<div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold text-gray-900 dark:text-white">Admin API health</h2><p className="mt-1 text-sm text-gray-500">{detail}</p></div><span className={`rounded-full px-3 py-1 text-xs font-semibold ${status === "online" ? "bg-green-50 text-green-700" : status === "error" ? "bg-red-50 text-red-700" : "bg-gray-100 text-gray-600"}`}>{status === "online" ? "API online" : status === "error" ? "Check failed" : "Checking…"}</span></div>
       <div className="mt-4 flex flex-wrap gap-3">
         <button onClick={() => void checkStatus()} className="rounded-lg border border-[#cbb78e] px-4 py-2 text-sm font-medium text-[#79633b] hover:bg-[#fbf8f2]">Refresh status</button>
         {module === "integrations" && <button disabled={connecting} onClick={async () => { setConnecting(true); setConnectError(""); try { const token = sessionStorage.getItem("tial_access_token"); const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY; if (!token || !key) throw new Error("Sign in again before connecting Shopify."); const res = await fetch("https://fjzpknwcdecoxdvzrljy.supabase.co/functions/v1/tial-shopify-oauth-start", { headers: { apikey: key, Authorization: `Bearer ${token}` } }); const payload = await res.json(); if (!res.ok || !payload.authorizationUrl) throw new Error(payload.error || "Could not start Shopify authorization."); window.location.assign(payload.authorizationUrl); } catch (e) { setConnectError(e instanceof Error ? e.message : "Could not start Shopify authorization."); setConnecting(false); } }} className="rounded-lg bg-[#29251f] px-4 py-2 text-sm font-medium text-white disabled:opacity-60">{connecting ? "Opening Shopify…" : "Connect Shopify securely"}</button>}
@@ -115,7 +147,7 @@ export default function AdminModule({ module }: { module: ModuleKey }) {
       {products.length > 0 && <div className="mt-4 space-y-3">{products.map((product) => <article key={product.id} className="flex gap-3 rounded-xl border border-gray-100 p-3 dark:border-gray-800">
         {product.image ? <img src={product.image} alt="" loading="lazy" className="h-20 w-20 rounded-lg border border-gray-100 object-cover dark:border-gray-800" /> : <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-xs text-gray-500 dark:bg-gray-800">No image</div>}
         <div className="min-w-0 flex-1"><h3 className="font-semibold text-gray-900 dark:text-white">{product.title}</h3><p className="mt-1 break-all text-xs text-gray-500">{product.handle}</p><div className="mt-2 flex flex-wrap gap-2 text-xs"><span className="rounded-full bg-gray-100 px-2 py-1 text-gray-700 dark:bg-gray-800 dark:text-gray-300">{product.status}</span><span className="rounded-full bg-gray-100 px-2 py-1 text-gray-700 dark:bg-gray-800 dark:text-gray-300">{product.variantCount} variants</span></div>{product.variants?.[0] && <p className="mt-2 text-sm text-gray-700 dark:text-gray-300">From ₹{product.variants[0].price} · {product.variants[0].title}</p>}
-        <div className="mt-3"><button onClick={() => editingProductId === product.id ? setEditingProductId(null) : startEditing(product)} className="rounded-lg bg-[#29251f] px-4 py-2 text-sm font-medium text-white">{editingProductId === product.id ? "Cancel edit" : "Edit product"}</button></div>
+        <details className="mt-3 rounded-lg border border-gray-200 p-3"><summary className="cursor-pointer text-sm font-medium text-[#79633b]">Add / edit product images</summary><p className="mt-2 text-xs leading-5 text-gray-500">Enter a publicly accessible HTTPS image URL. This adds an image; it does not delete existing images.</p><label className="mt-2 block text-xs font-semibold text-gray-600">Image URL</label><input type="url" value={imageUrls[product.id] ?? ""} onChange={e=>setImageUrls(old=>({...old,[product.id]:e.target.value}))} placeholder="https://example.com/product-image.jpg" className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"/><label className="mt-2 block text-xs font-semibold text-gray-600">Image alt text</label><input value={imageAlts[product.id] ?? product.title} onChange={e=>setImageAlts(old=>({...old,[product.id]:e.target.value}))} maxLength={512} className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"/><button onClick={()=>void addProductImage(product)} disabled={imageSavingId===product.id || !(imageUrls[product.id]??"").trim()} className="mt-3 rounded-lg border border-[#cbb78e] px-4 py-2 text-sm font-medium text-[#79633b] disabled:opacity-50">{imageSavingId===product.id ? "Adding image…" : "Add image to Shopify"}</button></details><div className="mt-3"><button onClick={() => editingProductId === product.id ? setEditingProductId(null) : startEditing(product)} className="rounded-lg bg-[#29251f] px-4 py-2 text-sm font-medium text-white">{editingProductId === product.id ? "Cancel edit" : "Edit product"}</button></div>
         {editingProductId === product.id && <div className="mt-4 space-y-3 rounded-xl border border-[#d8c9aa] bg-[#fbf8f2] p-3">
           <div><label className="text-xs font-semibold text-[#71695d]">Product title</label><input value={editTitle} onChange={e=>setEditTitle(e.target.value)} maxLength={255} className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"/></div>
           <div><label className="text-xs font-semibold text-[#71695d]">Status</label><select value={editStatus} onChange={e=>setEditStatus(e.target.value)} className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"><option value="ACTIVE">Active (visible on sales channels if published)</option><option value="DRAFT">Draft</option><option value="ARCHIVED">Archived</option></select></div>
