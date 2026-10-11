@@ -341,38 +341,14 @@ const AppSidebar: React.FC = () => {
           !isExpanded && !isHovered ? "xl:justify-center" : "justify-start"
         }`}
       >
-        <Link href="/">
+        <Link href="/" className="flex items-center gap-3" aria-label="TIAL Admin home">
+          <span className="flex h-10 w-10 items-center justify-center rounded-full border border-[#b99b62] bg-[#f8f5ef] font-serif text-lg font-semibold tracking-tight text-[#29251f]">T</span>
           {isExpanded || isHovered || isMobileOpen ? (
-            <>
-              <Image
-                className="dark:hidden"
-                src="/images/logo/logo.svg"
-                alt="Logo"
-                width={150}
-                height={40}
-                priority
-                style={{ width: "auto", height: "auto" }}
-              />
-              <Image
-                className="hidden dark:block"
-                src="/images/logo/logo-dark.svg"
-                alt="Logo"
-                width={150}
-                height={40}
-                priority
-                style={{ width: "auto", height: "auto" }}
-              />
-            </>
-          ) : (
-            <Image
-              src="/images/logo/logo-icon.svg"
-              alt="Logo"
-              width={32}
-              height={32}
-              priority
-              style={{ width: "auto", height: "auto" }}
-            />
-          )}
+            <span className="flex flex-col leading-none">
+              <span className="font-serif text-xl font-semibold tracking-[0.22em] text-[#29251f] dark:text-[#f4eee3]">TIAL</span>
+              <span className="mt-1 text-[9px] tracking-[0.2em] text-[#9a8151] uppercase">Admin Studio</span>
+            </span>
+          ) : null}
         </Link>
       </div>
       <div className="no-scrollbar flex flex-col overflow-y-auto duration-300 ease-linear">
