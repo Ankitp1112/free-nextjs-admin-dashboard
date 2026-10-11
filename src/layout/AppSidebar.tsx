@@ -39,6 +39,7 @@ type NavItem = {
 const navItems: NavItem[] = [
   { icon: <GridIcon />, key: "dashboard", path: "/" },
   { icon: <BoxCubeIcon />, key: "products", path: "/products" },
+  { icon: <TableIcon />, key: "inventory", path: "/inventory", label: "Inventory" },
   { icon: <ListIcon />, key: "orders", path: "/orders", label: "Orders" },
   { icon: <UserCircleIcon />, key: "customers", path: "/customers", label: "Customers" },
   { icon: <PieChartIcon />, key: "insights", path: "/insights", label: "Store Insights" },
@@ -137,7 +138,7 @@ const AppSidebar: React.FC = () => {
                 </span>
                 {(isExpanded || isHovered || isMobileOpen) && (
                   <span className="menu-item-text">
-                    {t(`items.${nav.key}`)}
+                    {nav.label ?? t(`items.${nav.key}`)}
                   </span>
                 )}
               </Link>
